@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VideoTranscode</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e14;--surface:#111720;--surface2:#161d2a;--surface3:#1c2535;
+  --border:#243044;--border2:#2e3d55;
+  --text:#dde4f0;--muted:#6678a0;
+  --accent:#4a9eff;--accent-h:#6ab4ff;--accent-dim:rgba(74,158,255,.14);
+  --success:#34c759;--danger:#ff453a;--warn:#ffa629;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;min-height:100vh}
+
+/* header */
+header{border-bottom:1px solid var(--border);padding:13px 28px;display:flex;align-items:center;gap:12px;position:sticky;top:0;background:rgba(10,14,20,.94);backdrop-filter:blur(12px);z-index:20}
+.h-logo{display:flex;align-items:center;gap:10px}
+.h-title{font-size:16px;font-weight:700;color:var(--accent);letter-spacing:-.4px}
+.h-sub{margin-left:auto;color:var(--muted);font-size:12px}
+
+/* container */
+.container{max-width:980px;margin:0 auto;padding:0 24px 80px}
+
+/* tab bar */
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:28px;gap:2px;padding-top:20px}
+.tab-btn{padding:10px 22px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:-1px;transition:color .15s,border-color .15s;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-btn svg{opacity:.7}
+.tab-btn.active svg{opacity:1}
+.pane{display:none}.pane.active{display:block}
+
+/* upload zone */
+.upload-zone{border:2px dashed var(--border2);border-radius:12px;padding:44px 24px;text-align:center;cursor:pointer;transition:border-color .18s,background .18s;background:var(--surface);user-select:none;margin-bottom:18px}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-dim)}
+.upload-zone svg{color:var(--muted);margin-bottom:12px}
+.uz-main{font-size:15px;font-weight:500;color:var(--text)}.uz-main em{color:var(--accent);font-style:normal}
+.uz-hint{font-size:12px;color:var(--muted);margin-top:6px}
+.ubar-wrap{display:none}.ubar-wrap.show{display:block}
+.ubar-track{background:var(--border);border-radius:4px;height:4px;overflow:hidden;margin-top:12px;max-width:300px;margin-inline:auto}
+.ubar-fill{background:var(--accent);height:100%;border-radius:4px;transition:width .2s;width:0%}
+
+/* chips + badges */
+.file-chip{display:none;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:11px 16px;margin-bottom:14px}
+.file-chip.show{display:flex}
+.fc-name{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-size{color:var(--muted);font-size:12px;white-space:nowrap}
+.badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.badge-blue{background:rgba(74,158,255,.18);color:var(--accent)}
+.badge-green{background:rgba(52,199,89,.15);color:var(--success)}
+.badge-red{background:rgba(255,69,58,.15);color:var(--danger)}
+.badge-muted{background:rgba(102,120,160,.15);color:var(--muted)}
+
+/* compat */
+.alert{display:none;align-items:flex-start;gap:8px;padding:10px 14px;border-radius:8px;font-size:12.5px;line-height:1.5;margin-bottom:14px}
+.alert.show{display:flex}
+.alert-warn{background:rgba(255,166,41,.08);border:1px solid rgba(255,166,41,.25);color:var(--warn)}
+
+/* presets */
+.presets-block{margin-bottom:18px}
+.block-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px}
+.presets-row{display:flex;gap:7px;flex-wrap:wrap}
+.preset-btn{display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;border:1px solid var(--border2);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s}
+.preset-btn:hover{border-color:var(--accent);color:var(--text);background:var(--surface2)}
+.preset-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* settings panels */
+.settings-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:580px){.settings-cols{grid-template-columns:1fr}}
+.s-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:15px 17px}
+.s-panel-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:12px;padding-bottom:9px;border-bottom:1px solid var(--border)}
+.field-stack{display:flex;flex-direction:column;gap:9px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+select,input[type=number]{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:7px 10px;font-size:13px;width:100%;outline:none;transition:border-color .15s,background .15s;appearance:none;-webkit-appearance:none}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236678a0'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
+select:focus,input[type=number]:focus{border-color:var(--accent);background:var(--surface3)}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{opacity:.4}
+.unit-wrap{position:relative}.unit-wrap input{padding-right:38px}
+.unit-wrap .unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);pointer-events:none}
+
+/* output row */
+.output-row{display:flex;align-items:flex-end;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 17px;margin-bottom:14px;flex-wrap:wrap}
+.output-row .field{flex:0 0 190px}
+.size-est{display:none;flex:1;min-width:120px;padding-bottom:7px}
+.size-est.show{display:block}
+.size-est .se-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:2px}
+.size-est strong{font-size:15px;color:var(--text)}
+
+/* trim */
+.trim-panel{display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 17px;margin-bottom:14px}
+.trim-panel.show{display:block}
+.trim-video-wrap{border-radius:8px;overflow:hidden;background:#000;margin-bottom:16px;max-height:280px;display:flex;align-items:center;justify-content:center}
+#trimVideo{width:100%;max-height:280px;display:block;outline:none}
+
+/* scrubber */
+.scrubber-outer{margin:0 0 22px;user-select:none}
+.scrub-track{position:relative;height:44px;display:flex;align-items:center;cursor:crosshair}
+.scrub-bg{position:absolute;left:0;right:0;height:8px;background:var(--surface3);border-radius:4px;border:1px solid var(--border)}
+.scrub-cut{position:absolute;height:8px;background:rgba(0,0,0,.5)}
+.scrub-cut-l{left:0;border-radius:4px 0 0 4px}
+.scrub-cut-r{right:0;border-radius:0 4px 4px 0}
+.scrub-sel{position:absolute;height:8px;background:var(--accent);opacity:.55}
+.scrub-handle{position:absolute;top:50%;transform:translate(-50%,-50%);width:5px;height:30px;background:var(--accent);border-radius:3px;cursor:ew-resize;z-index:4;transition:box-shadow .1s}
+.scrub-handle:hover,.scrub-handle.drag{box-shadow:0 0 0 5px rgba(74,158,255,.28)}
+.scrub-hlabel{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--accent);white-space:nowrap;font-weight:600;pointer-events:none}
+.scrub-edges{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px}
+.trim-inputs-row{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.trim-inputs-row .field{flex:0 0 120px}
+.trim-dur{flex:1;font-size:12px;color:var(--muted);padding-bottom:7px;min-width:120px}
+.trim-dur strong{color:var(--text)}
+
+/* action row */
+.action-row{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+
+/* buttons */
+.btn{padding:9px 22px;border-radius:8px;font-size:13.5px;font-weight:700;border:none;cursor:pointer;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:6px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#0a0e14}
+.btn-primary:hover:not(:disabled){background:var(--accent-h)}
+.btn-success{background:var(--success);color:#0a0e14}
+.btn-success:hover{background:#46d668}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text)}
+.btn-ghost:hover{background:var(--surface2)}
+
+/* progress */
+.progress-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 22px;margin-bottom:14px}
+.progress-card.show{display:block}
+.prog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}
+.prog-label{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.prog-pct{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.track{background:var(--surface3);border-radius:6px;height:10px;overflow:hidden}
+.fill{height:100%;border-radius:6px;background:var(--accent);width:0%;transition:width .35s ease}
+.fill.done{background:var(--success)}.fill.error{background:var(--danger)}
+.prog-meta{margin-top:8px;font-size:12px;color:var(--muted)}
+.error-box{display:none;margin-top:12px;padding:12px;background:rgba(255,69,58,.07);border:1px solid rgba(255,69,58,.2);border-radius:6px;font-size:12px;color:var(--danger);white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto}
+.error-box.show{display:block}
+
+/* preview */
+.preview-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.preview-card.show{display:block}
+.card-head{padding:11px 17px;border-bottom:1px solid var(--border);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+#previewVideo{width:100%;max-height:400px;display:block;background:#000;outline:none}
+.preview-note{padding:10px 17px;font-size:12px;color:var(--muted)}
+
+.download-bar{display:none;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.download-bar.show{display:flex}
+
+/* ── INSPECT tab ── */
+.inspect-drop-wrap{margin-bottom:18px}
+.inspect-panels{display:none}.inspect-panels.show{display:block}
+.inspect-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.inspect-head{padding:10px 17px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:8px}
+.inspect-head.video-c{color:#6ab4ff}.inspect-head.audio-c{color:#34c759}.inspect-head.container-c{color:var(--muted)}
+.inspect-row{display:flex;padding:9px 17px;border-bottom:1px solid var(--border);font-size:13px}
+.inspect-row:last-child{border-bottom:none}
+.inspect-key{width:150px;color:var(--muted);flex-shrink:0;font-size:12px}
+.inspect-val{color:var(--text);font-weight:500;word-break:break-all}
+.inspect-val .tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(74,158,255,.15);color:var(--accent);margin-left:6px;vertical-align:middle}
+
+/* thumb row */
+.thumb-row{display:flex;align-items:center;gap:10px;padding:12px 17px;border-top:1px solid var(--border);flex-wrap:wrap}
+.thumb-row label{font-size:12px;color:var(--muted);white-space:nowrap}
+.thumb-img{display:none;max-height:64px;border-radius:4px;border:1px solid var(--border2)}
+.thumb-img.show{display:block}
+
+/* ── BATCH tab ── */
+.batch-settings{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 17px;margin-bottom:16px}
+.batch-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px}
+.bt-head{display:grid;grid-template-columns:36px 1fr 80px 110px 80px 60px 130px 100px;gap:0;background:var(--surface2);border-bottom:1px solid var(--border)}
+.bt-head span{padding:9px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.bt-row{display:grid;grid-template-columns:36px 1fr 80px 110px 80px 60px 130px 100px;gap:0;border-bottom:1px solid var(--border);align-items:center;font-size:12.5px}
+.bt-row:last-child{border-bottom:none}
+.bt-cell{padding:9px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-cell.fname{color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-cell.spec{color:var(--muted)}
+.bt-prog-wrap{display:flex;align-items:center;gap:7px;padding:9px 10px}
+.bt-prog-track{flex:1;height:4px;background:var(--border);border-radius:4px;overflow:hidden}
+.bt-prog-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.bt-prog-fill.done{background:var(--success)}.bt-prog-fill.err{background:var(--danger)}
+.bt-prog-pct{font-size:11px;color:var(--muted);min-width:28px;text-align:right;font-variant-numeric:tabular-nums}
+.bt-action{padding:7px 10px;text-align:right}
+.batch-empty{padding:32px;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:700px){.bt-head,.bt-row{grid-template-columns:1fr 70px 100px 90px}}
+
+/* history */
+.history-wrap{margin-top:32px;padding-top:18px;border-top:1px solid var(--border)}
+.history-toggle-btn{background:none;border:none;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0;margin-bottom:12px}
+.history-toggle-btn:hover{color:var(--text)}.history-toggle-btn svg{transition:transform .2s}
+.history-toggle-btn.open svg{transform:rotate(90deg)}
+.history-list{display:none}.history-list.show{display:block}
+.h-entry{border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:7px;font-size:12px}
+.h-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.h-name{font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.h-time{color:var(--muted);white-space:nowrap;flex-shrink:0;font-size:11px}
+.h-meta{color:var(--muted);margin-top:3px}
+.h-empty{color:var(--muted);font-size:13px;padding:4px 0}
+
+/* spinner */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .65s linear infinite;flex-shrink:0}
+
+/* ── COMPRESS tab ── */
+.quality-slider-wrap{margin-bottom:18px}
+.quality-slider{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:linear-gradient(to right,var(--success),var(--accent),var(--warn),var(--danger));outline:none;cursor:pointer}
+.quality-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;background:var(--text);border:2px solid var(--accent);cursor:pointer;box-shadow:0 0 0 3px var(--accent-dim)}
+.quality-slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--text);border:2px solid var(--accent);cursor:pointer}
+.quality-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px}
+.quality-labels span.active-label{color:var(--accent);font-weight:700}
+.savings-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:14px}
+.savings-card.show{display:block}
+.savings-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.savings-item{display:flex;flex-direction:column;gap:3px}
+.savings-item label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.savings-item strong{font-size:18px;font-weight:700}
+.savings-arrow{font-size:20px;color:var(--muted)}
+.savings-badge{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700}
+.savings-badge.good{background:rgba(52,199,89,.15);color:var(--success)}
+.savings-badge.ok{background:rgba(74,158,255,.15);color:var(--accent)}
+.savings-badge.warn{background:rgba(255,166,41,.12);color:var(--warn)}
+
+/* reframe thumbnails */
+.rf-thumb{border:2px solid var(--border2);border-radius:8px;overflow:hidden;cursor:pointer;transition:border-color .15s,opacity .15s;flex-shrink:0;width:80px}
+.rf-thumb:hover{border-color:var(--accent)}
+.rf-thumb.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.rf-thumb.done{border-color:var(--success)}
+.rf-thumb.error{border-color:var(--danger)}
+.rf-thumb img{width:80px;height:56px;object-fit:cover;display:block}
+.rf-thumb-label{font-size:9px;padding:2px 4px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2)}
+.rf-thumb-badge{font-size:9px;padding:1px 4px;text-align:center;font-weight:700}
+/* batch table */
+.rbt-head{display:grid;grid-template-columns:24px 1fr 70px 120px 90px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.rbt-row{display:grid;grid-template-columns:24px 1fr 70px 120px 90px;border-bottom:1px solid var(--border);align-items:center;font-size:12px}
+.rbt-row:last-child{border-bottom:none}
+.rbt-cell{padding:7px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    <span class="h-title">VideoTranscode</span>
+  </div>
+  <span class="h-sub">FFmpeg-powered</span>
+</header>
+
+<div class="container">
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="convert">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    Convert
+  </button>
+  <button class="tab-btn" data-tab="inspect">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    Inspect
+  </button>
+  <button class="tab-btn" data-tab="batch">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/></svg>
+    Batch
+  </button>
+  <button class="tab-btn" data-tab="reframe">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+    Reframe
+  </button>
+  <button class="tab-btn" data-tab="compress">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+    Compress
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════ CONVERT ═══ -->
+<div id="pane-convert" class="pane active">
+
+  <div class="upload-zone" id="cv-zone">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <p class="uz-main">Drop a video here or <em>click to browse</em></p>
+    <p class="uz-hint">Single file — MP4 · MOV · MKV · WebM · AVI · WMV</p>
+    <div class="ubar-wrap" id="cv-ubar-wrap"><div class="ubar-track"><div class="ubar-fill" id="cv-ubar"></div></div></div>
+  </div>
+  <input type="file" id="cv-input" accept="video/*,video/x-matroska" style="display:none">
+
+  <div class="file-chip" id="cv-chip">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    <span class="fc-name" id="cv-chip-name"></span>
+    <span class="fc-size" id="cv-chip-size"></span>
+    <span class="badge badge-blue" id="cv-chip-badge">Uploading…</span>
+  </div>
+
+  <!-- compact specs after upload -->
+  <div class="s-panel" id="cv-specs" style="display:none;margin-bottom:14px">
+    <div class="s-panel-title">Source</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px 16px">
+      <div class="field"><label>Duration</label><div id="cvs-dur" style="font-size:13px;font-weight:600">—</div></div>
+      <div class="field"><label>Resolution</label><div id="cvs-res" style="font-size:13px;font-weight:600">—</div></div>
+      <div class="field"><label>Video Codec</label><div id="cvs-vc" style="font-size:13px;font-weight:600">—</div></div>
+      <div class="field"><label>FPS</label><div id="cvs-fps" style="font-size:13px;font-weight:600">—</div></div>
+      <div class="field"><label>V. Bitrate</label><div id="cvs-vbr" style="font-size:13px;font-weight:600">—</div></div>
+      <div class="field"><label>Audio</label><div id="cvs-aud" style="font-size:13px;font-weight:600">—</div></div>
+    </div>
+  </div>
+
+  <div class="alert alert-warn" id="cv-compat">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span id="cv-compat-text"></span>
+  </div>
+
+  <div class="presets-block">
+    <div class="block-label">Platform Presets</div>
+    <div class="presets-row" id="cv-presets">
+      <button class="preset-btn" data-preset="youtube">▶ YouTube</button>
+      <button class="preset-btn" data-preset="instagram">◉ Instagram Reels</button>
+      <button class="preset-btn" data-preset="hotstar">★ Hotstar</button>
+      <button class="preset-btn" data-preset="netflix">N Netflix</button>
+      <button class="preset-btn" data-preset="primevideo">🎬 Prime Video OTT</button>
+    </div>
+  </div>
+
+  <div class="settings-cols">
+    <div class="s-panel">
+      <div class="s-panel-title">Video</div>
+      <div class="field-stack">
+        <div class="field"><label>Codec</label><select id="cv-vcodec"><option value="h264">H.264 (AVC)</option><option value="h265">H.265 (HEVC)</option><option value="vp9">VP9</option></select></div>
+        <div class="field"><label>Resolution</label><select id="cv-res"><option value="original">Original</option><option value="3840x2160">4K — 3840×2160</option><option value="2560x1440">2K — 2560×1440</option><option value="1920x1080" selected>1080p — 1920×1080</option><option value="1280x720">720p — 1280×720</option><option value="854x480">480p — 854×480</option><option value="640x360">360p — 640×360</option></select></div>
+        <div class="field"><label>Video Bitrate</label><div class="unit-wrap"><input type="number" id="cv-vbr" value="5000" min="100" max="200000" step="500"><span class="unit">kbps</span></div></div>
+        <div class="field"><label>Frame Rate</label><select id="cv-fps"><option value="23.976">23.976 fps</option><option value="24">24 fps</option><option value="25">25 fps</option><option value="29.97" selected>29.97 fps</option><option value="30">30 fps</option><option value="60">60 fps</option></select></div>
+        <div class="field"><label>Color Space</label><select id="cv-cs"><option value="sdr" selected>SDR — BT.709</option><option value="hdr">HDR — BT.2020</option></select></div>
+      </div>
+    </div>
+    <div class="s-panel">
+      <div class="s-panel-title">Audio</div>
+      <div class="field-stack">
+        <div class="field"><label>Codec</label><select id="cv-acodec"><option value="aac" selected>AAC</option><option value="mp3">MP3</option><option value="ac3">AC3 (Dolby)</option></select></div>
+        <div class="field"><label>Bitrate</label><div class="unit-wrap"><input type="number" id="cv-abr" value="192" min="32" max="640" step="32"><span class="unit">kbps</span></div></div>
+        <div class="field"><label>Sample Rate</label><select id="cv-sr"><option value="44100">44.1 kHz</option><option value="48000" selected>48 kHz</option></select></div>
+        <div class="field"><label>Channels</label><select id="cv-ch"><option value="mono">Mono</option><option value="stereo" selected>Stereo</option><option value="5.1">5.1 Surround</option></select></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="output-row">
+    <div class="field"><label>Output Format</label><select id="cv-fmt"><option value="mp4" selected>MP4</option><option value="mov">MOV</option><option value="mkv">MKV</option><option value="webm">WebM</option></select></div>
+    <div class="size-est" id="cv-size-est">
+      <span class="se-label">Estimated output</span>
+      <strong id="cv-size-val">—</strong>
+    </div>
+  </div>
+
+  <!-- trim -->
+  <div class="trim-panel" id="cv-trim">
+    <div class="s-panel-title">Trim</div>
+    <div class="trim-video-wrap"><video id="cv-trim-video" controls></video></div>
+    <div class="scrubber-outer">
+      <div class="scrub-track" id="cv-scrub-track">
+        <div class="scrub-bg"></div>
+        <div class="scrub-cut scrub-cut-l" id="cv-cut-l"></div>
+        <div class="scrub-sel" id="cv-scrub-sel"></div>
+        <div class="scrub-cut scrub-cut-r" id="cv-cut-r"></div>
+        <div class="scrub-handle" id="cv-sh-start"><span class="scrub-hlabel" id="cv-hl-start">0:00</span></div>
+        <div class="scrub-handle" id="cv-sh-end"><span class="scrub-hlabel" id="cv-hl-end">0:00</span></div>
+      </div>
+      <div class="scrub-edges"><span>0:00</span><span id="cv-scrub-full">0:00</span></div>
+    </div>
+    <div class="trim-inputs-row">
+      <div class="field"><label>Start</label><div class="unit-wrap"><input type="number" id="cv-trim-start" min="0" step="0.1" placeholder="0"><span class="unit">s</span></div></div>
+      <div class="field"><label>End</label><div class="unit-wrap"><input type="number" id="cv-trim-end" min="0" step="0.1" placeholder="full"><span class="unit">s</span></div></div>
+      <div class="trim-dur" id="cv-trim-dur"></div>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button class="btn btn-primary" id="cv-convert-btn" disabled>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Convert
+    </button>
+  </div>
+
+  <div class="progress-card" id="cv-prog-card">
+    <div class="prog-header">
+      <span class="prog-label"><span class="spinner" id="cv-spinner"></span><span id="cv-prog-text">Converting…</span></span>
+      <span class="prog-pct" id="cv-prog-pct">0%</span>
+    </div>
+    <div class="track"><div class="fill" id="cv-prog-fill"></div></div>
+    <div class="prog-meta" id="cv-prog-meta"></div>
+    <div class="error-box" id="cv-error-box"></div>
+  </div>
+
+  <div class="preview-card" id="cv-preview">
+    <div class="card-head">Output Preview</div>
+    <video id="cv-preview-video" controls></video>
+    <div class="preview-note" id="cv-preview-note"></div>
+  </div>
+
+  <div class="download-bar" id="cv-dl-bar">
+    <a class="btn btn-success" id="cv-dl-btn" href="#" download>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download
+    </a>
+    <button class="btn btn-ghost" id="cv-new-btn">New Conversion</button>
+  </div>
+
+  <!-- history only on convert tab -->
+  <div class="history-wrap">
+    <button class="history-toggle-btn" id="hist-toggle">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      Conversion History
+    </button>
+    <div class="history-list" id="hist-list"></div>
+  </div>
+
+</div><!-- /pane-convert -->
+
+
+<!-- ═══════════════════════════════════════ INSPECT ══ -->
+<div id="pane-inspect" class="pane">
+
+  <div class="upload-zone" id="ins-zone">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <p class="uz-main">Drop a video to <em>inspect its specs</em></p>
+    <p class="uz-hint">Full codec, bitrate, resolution and audio details — no conversion</p>
+    <div class="ubar-wrap" id="ins-ubar-wrap"><div class="ubar-track"><div class="ubar-fill" id="ins-ubar"></div></div></div>
+  </div>
+  <input type="file" id="ins-input" accept="video/*,video/x-matroska" style="display:none">
+
+  <div class="file-chip" id="ins-chip">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    <span class="fc-name" id="ins-chip-name"></span>
+    <span class="fc-size" id="ins-chip-size"></span>
+    <span class="badge badge-blue" id="ins-chip-badge">Reading…</span>
+  </div>
+
+  <div class="inspect-panels" id="ins-panels">
+
+    <div class="inspect-section">
+      <div class="inspect-head container-c">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/></svg>
+        Container
+      </div>
+      <div class="inspect-row"><span class="inspect-key">Format</span><span class="inspect-val" id="ins-format">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">File Size</span><span class="inspect-val" id="ins-filesize">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Duration</span><span class="inspect-val" id="ins-duration">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Overall Bitrate</span><span class="inspect-val" id="ins-bitrate">—</span></div>
+    </div>
+
+    <div class="inspect-section">
+      <div class="inspect-head video-c">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Video Stream
+      </div>
+      <div class="inspect-row"><span class="inspect-key">Codec</span><span class="inspect-val" id="ins-vcodec">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Profile</span><span class="inspect-val" id="ins-vprofile">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Resolution</span><span class="inspect-val" id="ins-vres">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Frame Rate</span><span class="inspect-val" id="ins-vfps">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Bitrate</span><span class="inspect-val" id="ins-vbr">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Pixel Format</span><span class="inspect-val" id="ins-pix">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Color Space</span><span class="inspect-val" id="ins-color">—</span></div>
+    </div>
+
+    <div class="inspect-section">
+      <div class="inspect-head audio-c">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        Audio Stream
+      </div>
+      <div class="inspect-row"><span class="inspect-key">Codec</span><span class="inspect-val" id="ins-acodec">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Channels</span><span class="inspect-val" id="ins-ach">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Sample Rate</span><span class="inspect-val" id="ins-asr">—</span></div>
+      <div class="inspect-row"><span class="inspect-key">Bitrate</span><span class="inspect-val" id="ins-abr">—</span></div>
+    </div>
+
+    <!-- Thumbnail inside inspect -->
+    <div class="inspect-section">
+      <div class="inspect-head container-c">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Thumbnail Extractor
+      </div>
+      <div class="thumb-row">
+        <label>Extract frame at</label>
+        <div class="unit-wrap" style="width:90px"><input type="number" id="ins-thumb-t" value="0" min="0" step="1"><span class="unit">s</span></div>
+        <button class="btn btn-ghost btn-sm" id="ins-thumb-btn">Extract Frame</button>
+        <a id="ins-thumb-dl" style="display:none" class="btn btn-ghost btn-sm" download="thumbnail.jpg">Save JPG</a>
+        <img id="ins-thumb-img" class="thumb-img" alt="">
+      </div>
+    </div>
+
+  </div>
+</div><!-- /pane-inspect -->
+
+
+<!-- ═══════════════════════════════════════ BATCH ════ -->
+<div id="pane-batch" class="pane">
+
+  <div class="upload-zone" id="bt-zone">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/></svg>
+    <p class="uz-main">Drop <em>multiple videos</em> for batch conversion</p>
+    <p class="uz-hint">All files get the same target settings — source specs shown per file</p>
+    <div class="ubar-wrap" id="bt-ubar-wrap" style="display:none"></div>
+  </div>
+  <input type="file" id="bt-input" accept="video/*,video/x-matroska" multiple style="display:none">
+
+  <!-- Batch settings (limited) -->
+  <div class="batch-settings" id="bt-settings">
+    <div class="block-label" style="margin-bottom:10px">Target Platform</div>
+    <div class="presets-row" id="bt-presets" style="margin-bottom:16px">
+      <button class="preset-btn" data-preset="youtube">▶ YouTube</button>
+      <button class="preset-btn" data-preset="instagram">◉ Instagram Reels</button>
+      <button class="preset-btn" data-preset="hotstar">★ Hotstar</button>
+      <button class="preset-btn" data-preset="netflix">N Netflix</button>
+      <button class="preset-btn" data-preset="primevideo">🎬 Prime Video OTT</button>
+    </div>
+    <div class="block-label" style="margin-bottom:8px">Override (optional)</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div class="field" style="flex:0 0 170px"><label>Resolution</label><select id="bt-res"><option value="original">Original</option><option value="3840x2160">4K — 3840×2160</option><option value="2560x1440">2K — 2560×1440</option><option value="1920x1080" selected>1080p — 1920×1080</option><option value="1280x720">720p — 1280×720</option><option value="854x480">480p — 854×480</option></select></div>
+      <div class="field" style="flex:0 0 150px"><label>Output Format</label><select id="bt-fmt"><option value="mp4" selected>MP4</option><option value="mov">MOV</option><option value="mkv">MKV</option><option value="webm">WebM</option></select></div>
+      <div class="field" style="flex:0 0 150px"><label>Video Bitrate</label><div class="unit-wrap"><input type="number" id="bt-vbr" value="8000" min="100" max="200000" step="500"><span class="unit">kbps</span></div></div>
+    </div>
+  </div>
+
+  <!-- File table -->
+  <div class="batch-table-wrap" id="bt-table-wrap" style="display:none">
+    <div class="bt-head">
+      <span>#</span><span>File</span><span>Size</span><span>Resolution</span><span>Codec</span><span>FPS</span><span>Progress</span><span>Action</span>
+    </div>
+    <div id="bt-tbody">
+      <div class="batch-empty">No files yet</div>
+    </div>
+  </div>
+
+  <div class="action-row" id="bt-action-row" style="display:none">
+    <button class="btn btn-primary" id="bt-convert-btn" disabled>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span id="bt-btn-label">Convert All</span>
+    </button>
+    <span id="bt-status-txt" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+
+</div><!-- /pane-batch -->
+
+
+<!-- ═══════════════════════════════════════ REFRAME ══ -->
+<div id="pane-reframe" class="pane">
+
+  <!-- Upload zone -->
+  <div class="upload-zone" id="rf-zone">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+    <p class="uz-main">Drop an image or <em>click to browse</em></p>
+    <p class="uz-hint">JPG · PNG · WebP · BMP · TIFF — drop multiple images for batch processing</p>
+    <div class="ubar-wrap" id="rf-ubar-wrap"><div class="ubar-track"><div class="ubar-fill" id="rf-ubar"></div></div></div>
+  </div>
+  <input type="file" id="rf-input" accept="image/*" multiple style="display:none">
+
+  <div class="file-chip" id="rf-chip">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    <span class="fc-name" id="rf-chip-name"></span>
+    <span class="fc-size" id="rf-chip-size"></span>
+    <span class="badge badge-blue" id="rf-chip-badge">Uploading…</span>
+  </div>
+
+  <!-- Work area (shown after upload) -->
+  <div id="rf-work" style="display:none">
+
+    <!-- Thumbnail strip (batch mode) -->
+    <div id="rf-thumb-strip" style="display:none;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span class="block-label" style="margin:0">Images — <span id="rf-batch-count">0</span> uploaded · editing reference</span>
+        <span style="font-size:11px;color:var(--muted)">Click any thumbnail to use it as the crop reference</span>
+      </div>
+      <div id="rf-thumbs" style="display:flex;gap:8px;flex-wrap:wrap;max-height:160px;overflow-y:auto;padding:2px"></div>
+    </div>
+
+    <!-- Aspect ratio / size presets -->
+    <div class="presets-block" style="margin-bottom:10px">
+      <div class="block-label">Aspect Ratio</div>
+      <div class="presets-row" id="rf-ar-presets" style="flex-wrap:wrap;gap:6px">
+        <button class="preset-btn" data-ar="16:9">16:9</button>
+        <button class="preset-btn" data-ar="9:16">9:16</button>
+        <button class="preset-btn" data-ar="4:3">4:3</button>
+        <button class="preset-btn" data-ar="3:4">3:4</button>
+        <button class="preset-btn" data-ar="1:1">1:1</button>
+        <button class="preset-btn" data-ar="21:9">21:9</button>
+        <button class="preset-btn" data-ar="3:2">3:2</button>
+        <button class="preset-btn" data-ar="2:3">2:3</button>
+        <button class="preset-btn" data-ar="5:4">5:4</button>
+        <button class="preset-btn" data-ar="4:5">4:5</button>
+      </div>
+    </div>
+    <div class="presets-block" style="margin-bottom:14px">
+      <div class="block-label">Platform Sizes</div>
+      <div class="presets-row" id="rf-sz-presets" style="flex-wrap:wrap;gap:6px">
+        <button class="preset-btn" data-w="1920" data-h="1080">YouTube 1080p</button>
+        <button class="preset-btn" data-w="1080" data-h="1080">Instagram Square</button>
+        <button class="preset-btn" data-w="1080" data-h="1920">Reels / TikTok</button>
+        <button class="preset-btn" data-w="1200" data-h="628">Twitter / OG</button>
+        <button class="preset-btn" data-w="1280" data-h="720">Thumbnail 720p</button>
+        <button class="preset-btn" data-w="1080" data-h="566">LinkedIn Banner</button>
+        <button class="preset-btn" data-w="800" data-h="800">Print Square</button>
+        <button class="preset-btn" data-w="2480" data-h="3508">A4 Portrait</button>
+      </div>
+    </div>
+
+    <!-- Canvas editor + live sim -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px" id="rf-canvas-row">
+      <div class="s-panel" style="padding:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Original</span>
+          <span id="rf-src-dims" style="font-size:11px;color:var(--muted)"></span>
+        </div>
+        <div style="position:relative">
+          <canvas id="rf-crop-canvas" style="width:100%;display:block;border-radius:6px;cursor:move;touch-action:none"></canvas>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px">Drag crop box · drag corners to resize freely</p>
+      </div>
+      <div class="s-panel" style="padding:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Live Preview</span>
+          <span id="rf-dst-dims" style="font-size:11px;color:var(--muted)"></span>
+        </div>
+        <canvas id="rf-sim-canvas" style="width:100%;display:block;border-radius:6px;background:#000"></canvas>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px">Approximate — seam carving preserves more detail</p>
+      </div>
+    </div>
+
+    <!-- Numeric inputs -->
+    <div class="s-panel" style="margin-bottom:14px;padding:14px 17px">
+      <div class="s-panel-title">Manual Dimensions</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field" style="flex:0 0 130px">
+          <label>Width (px)</label>
+          <input type="number" id="rf-tw" min="10" max="8000" step="1">
+        </div>
+        <div style="padding-bottom:9px;color:var(--muted);font-size:18px;line-height:1">×</div>
+        <div class="field" style="flex:0 0 130px">
+          <label>Height (px)</label>
+          <input type="number" id="rf-th" min="10" max="8000" step="1">
+        </div>
+        <div class="field" style="flex:0 0 80px">
+          <label>Lock AR</label>
+          <button id="rf-lock-btn" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" title="Lock aspect ratio">
+            <svg id="rf-lock-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </button>
+        </div>
+        <div class="field" style="flex:0 0 160px">
+          <label>Output Format</label>
+          <select id="rf-fmt">
+            <option value="jpeg">JPEG</option>
+            <option value="png">PNG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </div>
+        <div style="flex:1;padding-bottom:9px;font-size:12px;color:var(--muted)" id="rf-change-hint"></div>
+      </div>
+      <div id="rf-warning" style="display:none;margin-top:10px;font-size:12px;color:var(--warn);padding:8px 12px;background:rgba(255,166,41,.07);border:1px solid rgba(255,166,41,.2);border-radius:6px"></div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-primary" id="rf-process-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <span id="rf-process-label">Reframe Image</span>
+      </button>
+      <button class="btn btn-ghost" id="rf-reset-btn">New Image</button>
+    </div>
+
+    <!-- Single-image progress -->
+    <div class="progress-card" id="rf-prog-card">
+      <div class="prog-header">
+        <span class="prog-label"><span class="spinner" id="rf-spinner"></span><span id="rf-prog-text">Seam carving…</span></span>
+        <span class="prog-pct" id="rf-prog-pct">0%</span>
+      </div>
+      <div class="track"><div class="fill" id="rf-prog-fill"></div></div>
+      <div class="prog-meta">Content-aware — removing low-energy seams to preserve subjects</div>
+      <div class="error-box" id="rf-error-box"></div>
+    </div>
+
+    <!-- Batch results table -->
+    <div id="rf-batch-table" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px">
+      <div class="rbt-head">
+        <span class="rbt-cell" style="color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase">#</span>
+        <span class="rbt-cell" style="color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase">File</span>
+        <span class="rbt-cell" style="color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase">Size</span>
+        <span class="rbt-cell" style="color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase">Progress</span>
+        <span class="rbt-cell" style="color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase">Action</span>
+      </div>
+      <div id="rf-batch-tbody"></div>
+    </div>
+
+    <div class="download-bar" id="rf-dl-bar">
+      <a class="btn btn-success" id="rf-dl-btn" href="#" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+      <button class="btn btn-success" id="rf-zip-btn" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download All as ZIP
+      </button>
+    </div>
+
+  </div><!-- /rf-work -->
+
+</div><!-- /pane-reframe -->
+
+
+<!-- ═══════════════════════════════════════ COMPRESS ══ -->
+<div id="pane-compress" class="pane">
+
+  <div class="upload-zone" id="cmp-zone">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+    <p class="uz-main">Drop a video here or <em>click to browse</em></p>
+    <p class="uz-hint">Shrink file size without losing quality — MP4 · MOV · MKV · WebM</p>
+    <div class="ubar-wrap" id="cmp-ubar-wrap"><div class="ubar-track"><div class="ubar-fill" id="cmp-ubar"></div></div></div>
+  </div>
+  <input type="file" id="cmp-input" accept="video/*,video/x-matroska" style="display:none">
+
+  <div class="file-chip" id="cmp-chip">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    <span class="fc-name" id="cmp-chip-name"></span>
+    <span class="fc-size" id="cmp-chip-size"></span>
+    <span class="badge badge-blue" id="cmp-chip-badge">Uploading…</span>
+  </div>
+
+  <div id="cmp-work" style="display:none">
+
+    <!-- Quality slider -->
+    <div class="s-panel" style="margin-bottom:14px">
+      <div class="s-panel-title">Quality — How much to compress</div>
+      <div class="quality-slider-wrap">
+        <input type="range" class="quality-slider" id="cmp-quality" min="0" max="4" step="1" value="2">
+        <div class="quality-labels">
+          <span id="cmp-ql-0">Preserve</span>
+          <span id="cmp-ql-1">High</span>
+          <span id="cmp-ql-2">Balanced</span>
+          <span id="cmp-ql-3">Small</span>
+          <span id="cmp-ql-4">Tiny</span>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding:10px 14px;background:var(--surface2);border-radius:8px;font-size:12.5px;color:var(--muted)" id="cmp-quality-desc">
+        Good quality, significant size reduction — recommended starting point.
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings-cols">
+      <div class="s-panel">
+        <div class="s-panel-title">Codec</div>
+        <div class="field-stack">
+          <div class="field">
+            <label>Video Codec</label>
+            <select id="cmp-codec">
+              <option value="h264" selected>H.264 — Best compatibility</option>
+              <option value="h265">H.265 — ~40% smaller, slower encode</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Encode Speed</label>
+            <select id="cmp-speed">
+              <option value="fast">Fast — less compression</option>
+              <option value="medium" selected>Medium — balanced</option>
+              <option value="slow">Slow — best compression</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="s-panel">
+        <div class="s-panel-title">Output</div>
+        <div class="field-stack">
+          <div class="field">
+            <label>Format</label>
+            <select id="cmp-fmt">
+              <option value="mp4" selected>MP4</option>
+              <option value="mov">MOV</option>
+              <option value="mkv">MKV</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Audio</label>
+            <select id="cmp-audio">
+              <option value="copy" selected>Keep original (no quality loss)</option>
+              <option value="encode">Re-encode at 128 kbps AAC</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-primary" id="cmp-compress-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+        Compress Video
+      </button>
+      <button class="btn btn-ghost" id="cmp-new-btn" style="display:none">New Video</button>
+    </div>
+
+    <div class="progress-card" id="cmp-prog-card">
+      <div class="prog-header">
+        <span class="prog-label"><span class="spinner" id="cmp-spinner"></span><span id="cmp-prog-text">Compressing…</span></span>
+        <span class="prog-pct" id="cmp-prog-pct">0%</span>
+      </div>
+      <div class="track"><div class="fill" id="cmp-prog-fill"></div></div>
+      <div class="prog-meta" id="cmp-prog-meta"></div>
+      <div class="error-box" id="cmp-error-box"></div>
+    </div>
+
+    <!-- Savings result -->
+    <div class="savings-card" id="cmp-savings">
+      <div class="block-label" style="margin-bottom:12px">Compression Result</div>
+      <div class="savings-row">
+        <div class="savings-item">
+          <label>Original</label>
+          <strong id="cmp-orig-size" style="color:var(--muted)">—</strong>
+        </div>
+        <div class="savings-arrow">→</div>
+        <div class="savings-item">
+          <label>Compressed</label>
+          <strong id="cmp-new-size" style="color:var(--success)">—</strong>
+        </div>
+        <div id="cmp-savings-badge" class="savings-badge good"></div>
+      </div>
+    </div>
+
+    <div class="preview-card" id="cmp-preview">
+      <div class="card-head">Output Preview</div>
+      <video id="cmp-preview-video" controls></video>
+      <div class="preview-note" id="cmp-preview-note"></div>
+    </div>
+
+    <div class="download-bar" id="cmp-dl-bar">
+      <a class="btn btn-success" id="cmp-dl-btn" href="#" download>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+
+  </div><!-- /cmp-work -->
+
+</div><!-- /pane-compress -->
+
+</div><!-- /container -->
+
+<script>
+(function(){"use strict";
+
+// ── Presets ────────────────────────────────────────────────────────────────
+const PRESETS = {
+  youtube:    {video_codec:"h264",resolution:"1920x1080",video_bitrate:8000, frame_rate:"29.97", color_space:"sdr",audio_codec:"aac",audio_bitrate:192,audio_sample_rate:"48000",audio_channels:"stereo",output_format:"mp4"},
+  instagram:  {video_codec:"h264",resolution:"1920x1080",video_bitrate:3500, frame_rate:"30",    color_space:"sdr",audio_codec:"aac",audio_bitrate:128,audio_sample_rate:"44100",audio_channels:"stereo",output_format:"mp4"},
+  hotstar:    {video_codec:"h264",resolution:"1920x1080",video_bitrate:5000, frame_rate:"25",    color_space:"sdr",audio_codec:"aac",audio_bitrate:192,audio_sample_rate:"48000",audio_channels:"stereo",output_format:"mp4"},
+  netflix:    {video_codec:"h265",resolution:"1920x1080",video_bitrate:16000,frame_rate:"24",    color_space:"sdr",audio_codec:"aac",audio_bitrate:192,audio_sample_rate:"48000",audio_channels:"5.1",   output_format:"mp4"},
+  primevideo: {video_codec:"h264",resolution:"1920x1080",video_bitrate:50000,frame_rate:"23.976",color_space:"sdr",audio_codec:"aac",audio_bitrate:192,audio_sample_rate:"48000",audio_channels:"stereo",output_format:"mp4"},
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmtSize(b){if(b<1e6)return(b/1e3).toFixed(1)+" KB";if(b<1e9)return(b/1e6).toFixed(1)+" MB";return(b/1e9).toFixed(2)+" GB"}
+function fmtSec(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=Math.floor(s%60);return h?`${h}:${p(m)}:${p(ss)}`:`${m}:${p(ss)}`}
+function fmtHms(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=(s%60).toFixed(3);return`${p(h)}:${p(m)}:${ss}`}
+function p(n){return String(n).padStart(2,"0")}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function fmtBr(bps){if(!bps)return"—";const k=parseInt(bps)/1000;return k>=1000?(k/1000).toFixed(1)+" Mbps":k.toFixed(0)+" kbps"}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".pane").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("pane-"+btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// CONVERT TAB
+// ══════════════════════════════════════════════════════════════════════════
+const cv={
+  uploadId:null,origName:null,jobId:null,duration:0,
+  trimStart:0,trimEnd:0,scrubDrag:null,
+  evtSrc:null,elTimer:null,startTs:null,
+};
+
+const cvZone=document.getElementById("cv-zone");
+const cvInput=document.getElementById("cv-input");
+const cvChip=document.getElementById("cv-chip");
+const cvUbarWrap=document.getElementById("cv-ubar-wrap");
+const cvUbar=document.getElementById("cv-ubar");
+const cvSpecs=document.getElementById("cv-specs");
+const cvCompat=document.getElementById("cv-compat");
+const cvCompatText=document.getElementById("cv-compat-text");
+const cvTrim=document.getElementById("cv-trim");
+const cvTrimVideo=document.getElementById("cv-trim-video");
+const cvScrubTrack=document.getElementById("cv-scrub-track");
+const cvCutL=document.getElementById("cv-cut-l");
+const cvCutR=document.getElementById("cv-cut-r");
+const cvScrubSel=document.getElementById("cv-scrub-sel");
+const cvShStart=document.getElementById("cv-sh-start");
+const cvShEnd=document.getElementById("cv-sh-end");
+const cvHlStart=document.getElementById("cv-hl-start");
+const cvHlEnd=document.getElementById("cv-hl-end");
+const cvScrubFull=document.getElementById("cv-scrub-full");
+const cvSizeEst=document.getElementById("cv-size-est");
+const cvSizeVal=document.getElementById("cv-size-val");
+const cvConvertBtn=document.getElementById("cv-convert-btn");
+const cvProgCard=document.getElementById("cv-prog-card");
+const cvSpinner=document.getElementById("cv-spinner");
+const cvProgText=document.getElementById("cv-prog-text");
+const cvProgPct=document.getElementById("cv-prog-pct");
+const cvProgFill=document.getElementById("cv-prog-fill");
+const cvProgMeta=document.getElementById("cv-prog-meta");
+const cvErrorBox=document.getElementById("cv-error-box");
+const cvPreview=document.getElementById("cv-preview");
+const cvPreviewVideo=document.getElementById("cv-preview-video");
+const cvPreviewNote=document.getElementById("cv-preview-note");
+const cvDlBar=document.getElementById("cv-dl-bar");
+const cvDlBtn=document.getElementById("cv-dl-btn");
+const cvNewBtn=document.getElementById("cv-new-btn");
+
+cvZone.addEventListener("click",()=>cvInput.click());
+cvZone.addEventListener("dragover",e=>{e.preventDefault();cvZone.classList.add("drag")});
+cvZone.addEventListener("dragleave",()=>cvZone.classList.remove("drag"));
+cvZone.addEventListener("drop",e=>{e.preventDefault();cvZone.classList.remove("drag");if(e.dataTransfer.files[0])cvStartUpload(e.dataTransfer.files[0])});
+cvInput.addEventListener("change",e=>{if(e.target.files[0])cvStartUpload(e.target.files[0])});
+
+function cvStartUpload(file){
+  cvReset();
+  cv.origName=file.name;
+  document.getElementById("cv-chip-name").textContent=file.name;
+  document.getElementById("cv-chip-size").textContent=fmtSize(file.size);
+  cvSetBadge("Uploading…","badge-blue");
+  cvChip.classList.add("show");
+  cvUbarWrap.classList.add("show");
+  cvUbar.style.width="0%";
+  cvConvertBtn.disabled=true;
+  const fd=new FormData();fd.append("file",file);
+  const xhr=new XMLHttpRequest();xhr.open("POST","/upload");
+  xhr.upload.addEventListener("progress",e=>{if(e.lengthComputable)cvUbar.style.width=(e.loaded/e.total*100).toFixed(1)+"%"});
+  xhr.addEventListener("load",()=>{
+    cvUbarWrap.classList.remove("show");
+    try{
+      const r=JSON.parse(xhr.responseText);if(r.error)throw new Error(r.error);
+      cv.uploadId=r.upload_id;cv.duration=r.info?.duration||0;
+      cvSetBadge("Ready","badge-green");
+      cvConvertBtn.disabled=false;
+      cvShowSpecs(r.info,r.size);
+      cvInitTrim(r.upload_id);
+      cvUpdateSizeEst();
+    }catch(e){cvSetBadge("Upload failed","badge-red")}
+  });
+  xhr.addEventListener("error",()=>cvSetBadge("Upload failed","badge-red"));
+  xhr.send(fd);
+}
+function cvSetBadge(t,c){const b=document.getElementById("cv-chip-badge");b.textContent=t;b.className="badge "+c}
+
+function cvShowSpecs(info,sz){
+  if(!info)return;
+  document.getElementById("cvs-dur").textContent=info.duration?fmtSec(info.duration):"—";
+  document.getElementById("cvs-res").textContent=info.video?`${info.video.width}×${info.video.height}`:"—";
+  document.getElementById("cvs-vc").textContent=info.video?.codec||"—";
+  document.getElementById("cvs-fps").textContent=info.video?.fps?info.video.fps+" fps":"—";
+  document.getElementById("cvs-vbr").textContent=info.video?.bitrate?fmtBr(info.video.bitrate):"—";
+  document.getElementById("cvs-aud").textContent=info.audio?`${info.audio.codec||"—"} / ${info.audio.channel_layout||info.audio.channels+"ch"}`:"—";
+  cvSpecs.style.display="";
+  cvSizeEst.classList.add("show");
+}
+
+// scrubber
+function cvInitTrim(uploadId){
+  if(!cv.duration)return;
+  cv.trimStart=0;cv.trimEnd=cv.duration;
+  cvTrimVideo.src="/serve/"+uploadId;
+  document.getElementById("cv-trim-start").value="";
+  document.getElementById("cv-trim-end").value="";
+  document.getElementById("cv-trim-start").placeholder="0";
+  document.getElementById("cv-trim-end").placeholder=cv.duration.toFixed(1);
+  cvScrubFull.textContent=fmtSec(cv.duration);
+  cvUpdateScrubber();
+  cvTrim.classList.add("show");
+}
+function cvUpdateScrubber(){
+  if(!cv.duration)return;
+  const sp=(cv.trimStart/cv.duration)*100,ep=(cv.trimEnd/cv.duration)*100;
+  cvShStart.style.left=sp+"%";cvShEnd.style.left=ep+"%";
+  cvScrubSel.style.left=sp+"%";cvScrubSel.style.width=(ep-sp)+"%";
+  cvCutL.style.left="0";cvCutL.style.width=sp+"%";
+  cvCutR.style.right="0";cvCutR.style.width=(100-ep)+"%";
+  cvHlStart.textContent=fmtSec(cv.trimStart);cvHlEnd.textContent=fmtSec(cv.trimEnd);
+  const dur=cv.trimEnd-cv.trimStart;
+  document.getElementById("cv-trim-dur").innerHTML=`<strong>${fmtSec(dur)}</strong> selected of ${fmtSec(cv.duration)}`;
+  cvUpdateSizeEst();
+}
+function cvSyncInputs(){
+  document.getElementById("cv-trim-start").value=cv.trimStart>0?cv.trimStart.toFixed(1):"";
+  document.getElementById("cv-trim-end").value=cv.trimEnd<cv.duration?cv.trimEnd.toFixed(1):"";
+}
+function cvScrubPos(clientX){
+  const r=cvScrubTrack.getBoundingClientRect();
+  return Math.round(Math.max(0,Math.min(1,(clientX-r.left)/r.width))*cv.duration*10)/10;
+}
+cvShStart.addEventListener("mousedown",e=>{cv.scrubDrag="start";cvShStart.classList.add("drag");e.preventDefault()});
+cvShEnd.addEventListener("mousedown",e=>{cv.scrubDrag="end";cvShEnd.classList.add("drag");e.preventDefault()});
+document.addEventListener("mousemove",e=>{
+  if(!cv.scrubDrag||!cv.duration)return;
+  const t=cvScrubPos(e.clientX);
+  if(cv.scrubDrag==="start"){cv.trimStart=Math.max(0,Math.min(t,cv.trimEnd-.2));cvTrimVideo.currentTime=cv.trimStart}
+  else{cv.trimEnd=Math.min(cv.duration,Math.max(t,cv.trimStart+.2));cvTrimVideo.currentTime=cv.trimEnd}
+  cvSyncInputs();cvUpdateScrubber();
+});
+document.addEventListener("mouseup",()=>{
+  if(cv.scrubDrag){cvShStart.classList.remove("drag");cvShEnd.classList.remove("drag");cv.scrubDrag=null}
+});
+cvShStart.addEventListener("touchstart",e=>{cv.scrubDrag="start";e.preventDefault()},{passive:false});
+cvShEnd.addEventListener("touchstart",e=>{cv.scrubDrag="end";e.preventDefault()},{passive:false});
+document.addEventListener("touchmove",e=>{
+  if(!cv.scrubDrag||!cv.duration)return;
+  const t=cvScrubPos(e.touches[0].clientX);
+  if(cv.scrubDrag==="start"){cv.trimStart=Math.max(0,Math.min(t,cv.trimEnd-.2));cvTrimVideo.currentTime=cv.trimStart}
+  else{cv.trimEnd=Math.min(cv.duration,Math.max(t,cv.trimStart+.2));cvTrimVideo.currentTime=cv.trimEnd}
+  cvSyncInputs();cvUpdateScrubber();
+},{passive:false});
+document.addEventListener("touchend",()=>{cv.scrubDrag=null});
+document.getElementById("cv-trim-start").addEventListener("input",e=>{
+  const v=parseFloat(e.target.value);if(!isNaN(v)){cv.trimStart=Math.max(0,Math.min(v,cv.trimEnd-.2));cvUpdateScrubber()}
+});
+document.getElementById("cv-trim-end").addEventListener("input",e=>{
+  const v=parseFloat(e.target.value);if(!isNaN(v)){cv.trimEnd=Math.min(cv.duration||v,Math.max(v,cv.trimStart+.2));cvUpdateScrubber()}
+});
+
+function cvUpdateSizeEst(){
+  if(!cv.duration)return;
+  const vbr=parseInt(document.getElementById("cv-vbr").value)||0;
+  const abr=parseInt(document.getElementById("cv-abr").value)||0;
+  const dur=cv.trimEnd>cv.trimStart?cv.trimEnd-cv.trimStart:cv.duration;
+  cvSizeVal.textContent=fmtSize((vbr+abr)*1000*dur/8);
+}
+["cv-vbr","cv-abr"].forEach(id=>document.getElementById(id).addEventListener("input",cvUpdateSizeEst));
+
+// compat
+["cv-vcodec","cv-acodec","cv-fmt"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{cvCheckCompat();cvClearPreset()}));
+function cvCheckCompat(){
+  const vc=document.getElementById("cv-vcodec").value,ac=document.getElementById("cv-acodec").value,fmt=document.getElementById("cv-fmt").value,w=[];
+  if(fmt==="webm"&&vc!=="vp9")w.push("H.264/H.265 not supported in WebM — use VP9 or switch to MP4/MKV.");
+  if(fmt==="webm"&&(ac==="ac3"||ac==="mp3"))w.push(`${ac.toUpperCase()} is not compatible with WebM. Use AAC.`);
+  if(fmt!=="mkv"&&fmt!=="webm"&&ac==="ac3")w.push("AC3 (Dolby) has limited support in MP4/MOV — use MKV.");
+  if((fmt==="mp4"||fmt==="mov")&&vc==="vp9")w.push("VP9 in MP4/MOV is non-standard — use WebM or MKV.");
+  cvCompatText.textContent=w[0]||"";cvCompat.classList.toggle("show",w.length>0);
+}
+function cvClearPreset(){document.querySelectorAll("#cv-presets .preset-btn").forEach(b=>b.classList.remove("active"))}
+
+// presets
+document.querySelectorAll("#cv-presets .preset-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const p=PRESETS[btn.dataset.preset];if(!p)return;
+    document.getElementById("cv-vcodec").value=p.video_codec;
+    document.getElementById("cv-res").value=p.resolution;
+    document.getElementById("cv-vbr").value=p.video_bitrate;
+    document.getElementById("cv-fps").value=p.frame_rate;
+    document.getElementById("cv-cs").value=p.color_space;
+    document.getElementById("cv-acodec").value=p.audio_codec;
+    document.getElementById("cv-abr").value=p.audio_bitrate;
+    document.getElementById("cv-sr").value=p.audio_sample_rate;
+    document.getElementById("cv-ch").value=p.audio_channels;
+    document.getElementById("cv-fmt").value=p.output_format;
+    document.querySelectorAll("#cv-presets .preset-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");cvCheckCompat();cvUpdateSizeEst();
+  });
+});
+
+// convert
+cvConvertBtn.addEventListener("click",async()=>{
+  if(!cv.uploadId)return;
+  const ts=parseFloat(document.getElementById("cv-trim-start").value)||0;
+  const te=parseFloat(document.getElementById("cv-trim-end").value)||0;
+  const params={
+    video_codec:document.getElementById("cv-vcodec").value,
+    resolution:document.getElementById("cv-res").value,
+    video_bitrate:parseInt(document.getElementById("cv-vbr").value,10),
+    frame_rate:document.getElementById("cv-fps").value,
+    color_space:document.getElementById("cv-cs").value,
+    audio_codec:document.getElementById("cv-acodec").value,
+    audio_bitrate:parseInt(document.getElementById("cv-abr").value,10),
+    audio_sample_rate:parseInt(document.getElementById("cv-sr").value,10),
+    audio_channels:document.getElementById("cv-ch").value,
+    output_format:document.getElementById("cv-fmt").value,
+    trim_start:ts>0?ts:null,
+    trim_end:te>0?te:null,
+  };
+  try{
+    const r=await fetch("/convert",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({upload_id:cv.uploadId,original_name:cv.origName,params})});
+    const d=await r.json();if(d.error)throw new Error(d.error);
+    cv.jobId=d.job_id;cvBeginProgress(d.job_id);
+  }catch(e){alert("Could not start: "+e.message)}
+});
+
+function cvBeginProgress(id){
+  cvConvertBtn.disabled=true;cvDlBar.classList.remove("show");cvPreview.classList.remove("show");
+  cvErrorBox.classList.remove("show");cvProgFill.className="fill";cvProgFill.style.width="0%";
+  cvProgPct.textContent="0%";cvProgText.textContent="Converting…";cvSpinner.style.display="";
+  cvProgMeta.textContent="";cvProgCard.classList.add("show");cv.startTs=Date.now();
+  clearInterval(cv.elTimer);
+  cv.elTimer=setInterval(()=>{const e=(Date.now()-cv.startTs)/1000,m=Math.floor(e/60),s=Math.floor(e%60);cvProgMeta.textContent=`${m}:${p(s)} elapsed`;},1000);
+  if(cv.evtSrc)cv.evtSrc.close();
+  cv.evtSrc=new EventSource("/progress/"+id);
+  cv.evtSrc.onmessage=e=>cvHandleProgress(JSON.parse(e.data));
+  cv.evtSrc.onerror=()=>{cvProgText.textContent="Connection lost";cvSpinner.style.display="none"};
+}
+function cvHandleProgress(d){
+  if(d.status==="queued")return;
+  if(d.status==="processing"){cvProgFill.style.width=d.progress.toFixed(1)+"%";cvProgPct.textContent=d.progress.toFixed(1)+"%";return}
+  clearInterval(cv.elTimer);cv.evtSrc.close();cv.evtSrc=null;
+  if(d.status==="done"){
+    cvProgFill.style.width="100%";cvProgFill.classList.add("done");cvProgPct.textContent="100%";
+    cvSpinner.style.display="none";cvProgText.textContent="Done";
+    const el=(Date.now()-cv.startTs)/1000,m=Math.floor(el/60),s=Math.floor(el%60);
+    cvProgMeta.textContent=`${m}:${p(s)} elapsed · ready to download`;
+    cvDlBar.classList.add("show");cvDlBtn.href="/download/"+cv.jobId;
+    cvShowPreview(cv.jobId,document.getElementById("cv-fmt").value);
+    loadHistory();
+  }else if(d.status==="error"){
+    cvProgFill.classList.add("error");cvSpinner.style.display="none";cvProgText.textContent="Conversion failed";
+    cvErrorBox.textContent=d.error||"Unknown error";cvErrorBox.classList.add("show");cvConvertBtn.disabled=false;
+  }else if(d.status==="not_found"){cvSpinner.style.display="none";cvProgText.textContent="Job not found";cvConvertBtn.disabled=false}
+}
+function cvShowPreview(jobId,fmt){
+  if(fmt==="mkv"){cvPreviewNote.textContent="MKV preview not supported in browsers — use Download.";cvPreviewVideo.style.display="none";cvPreview.classList.add("show");return}
+  cvPreviewVideo.style.display="";cvPreviewVideo.src="/preview/"+jobId;cvPreviewNote.textContent="";cvPreview.classList.add("show");cvPreviewVideo.load();
+}
+
+cvNewBtn.addEventListener("click",()=>{cvReset();cvResetUI()});
+function cvReset(){
+  if(cv.evtSrc){cv.evtSrc.close();cv.evtSrc=null}
+  clearInterval(cv.elTimer);
+  if(cv.jobId){fetch("/cleanup/"+cv.jobId,{method:"DELETE"}).catch(()=>{});cv.jobId=null}
+  cv.uploadId=null;cv.origName=null;cv.duration=0;cv.trimStart=0;cv.trimEnd=0;cv.scrubDrag=null;
+}
+function cvResetUI(){
+  cvInput.value="";cvChip.classList.remove("show");cvSpecs.style.display="none";
+  cvCompat.classList.remove("show");cvProgCard.classList.remove("show");cvPreview.classList.remove("show");
+  cvDlBar.classList.remove("show");cvTrim.classList.remove("show");cvSizeEst.classList.remove("show");
+  cvConvertBtn.disabled=true;cvPreviewVideo.src="";cvTrimVideo.src="";
+  document.getElementById("cv-trim-start").value="";document.getElementById("cv-trim-end").value="";
+  document.querySelectorAll("#cv-presets .preset-btn").forEach(b=>b.classList.remove("active"));
+}
+
+// history
+document.getElementById("hist-toggle").addEventListener("click",()=>{
+  const hl=document.getElementById("hist-list");
+  const open=hl.classList.toggle("show");
+  document.getElementById("hist-toggle").classList.toggle("open",open);
+  if(open)loadHistory();
+});
+function loadHistory(){
+  fetch("/history").then(r=>r.json()).then(d=>{
+    const hl=document.getElementById("hist-list");
+    if(!d.length){hl.innerHTML=`<p class="h-empty">No conversions yet.</p>`;return}
+    hl.innerHTML=d.map(e=>{
+      const s=e.settings||{},sz=e.output_size?fmtSize(e.output_size):"—",ts=e.timestamp?new Date(e.timestamp).toLocaleString():"—";
+      return`<div class="h-entry"><div class="h-top"><span class="h-name">${esc(e.original_name||"—")} → ${esc(e.output_name||"—")}</span><span class="h-time">${ts}</span></div><div class="h-meta">${(s.video_codec||"").toUpperCase()} · ${s.resolution||""} · ${(s.output_format||"").toUpperCase()} · ${sz}</div></div>`;
+    }).join("");
+  }).catch(()=>{});
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// INSPECT TAB
+// ══════════════════════════════════════════════════════════════════════════
+const ins={uploadId:null};
+
+const insZone=document.getElementById("ins-zone");
+const insInput=document.getElementById("ins-input");
+const insChip=document.getElementById("ins-chip");
+const insPanels=document.getElementById("ins-panels");
+
+insZone.addEventListener("click",()=>insInput.click());
+insZone.addEventListener("dragover",e=>{e.preventDefault();insZone.classList.add("drag")});
+insZone.addEventListener("dragleave",()=>insZone.classList.remove("drag"));
+insZone.addEventListener("drop",e=>{e.preventDefault();insZone.classList.remove("drag");if(e.dataTransfer.files[0])insStartUpload(e.dataTransfer.files[0])});
+insInput.addEventListener("change",e=>{if(e.target.files[0])insStartUpload(e.target.files[0])});
+
+function insStartUpload(file){
+  ins.uploadId=null;insPanels.classList.remove("show");insChip.classList.remove("show");
+  document.getElementById("ins-chip-name").textContent=file.name;
+  document.getElementById("ins-chip-size").textContent=fmtSize(file.size);
+  document.getElementById("ins-chip-badge").textContent="Reading…";
+  document.getElementById("ins-chip-badge").className="badge badge-blue";
+  insChip.classList.add("show");
+  const fd=new FormData();fd.append("file",file);
+  const xhr=new XMLHttpRequest();xhr.open("POST","/upload");
+  const ub=document.getElementById("ins-ubar");const ubw=document.getElementById("ins-ubar-wrap");
+  ubw.style.display="block";
+  xhr.upload.addEventListener("progress",e=>{if(e.lengthComputable)ub.style.width=(e.loaded/e.total*100).toFixed(1)+"%"});
+  xhr.addEventListener("load",()=>{
+    ubw.style.display="none";
+    try{
+      const r=JSON.parse(xhr.responseText);if(r.error)throw new Error(r.error);
+      ins.uploadId=r.upload_id;
+      document.getElementById("ins-chip-badge").textContent="Done";
+      document.getElementById("ins-chip-badge").className="badge badge-green";
+      insShowSpecs(r.info,r.size,file.name);
+    }catch(e){document.getElementById("ins-chip-badge").textContent="Failed";document.getElementById("ins-chip-badge").className="badge badge-red"}
+  });
+  xhr.addEventListener("error",()=>{document.getElementById("ins-chip-badge").textContent="Failed";document.getElementById("ins-chip-badge").className="badge badge-red"});
+  xhr.send(fd);
+}
+
+function insShowSpecs(info,sz,fname){
+  if(!info)return;
+  // Container
+  document.getElementById("ins-format").textContent=info.format_name||"—";
+  document.getElementById("ins-filesize").textContent=sz?fmtSize(sz):"—";
+  document.getElementById("ins-duration").textContent=info.duration?fmtHms(info.duration)+" ("+info.duration.toFixed(3)+"s)":"—";
+  // overall bitrate from format — ffprobe returns bit_rate in format
+  document.getElementById("ins-bitrate").textContent=info.overall_bitrate?fmtBr(info.overall_bitrate):"—";
+  // Video
+  if(info.video){
+    const v=info.video;
+    document.getElementById("ins-vcodec").innerHTML=`${esc(v.codec||"—")}<span class="tag">${esc(v.profile||"")}</span>`;
+    document.getElementById("ins-vprofile").textContent=v.profile||"—";
+    document.getElementById("ins-vres").textContent=(v.width&&v.height)?`${v.width} × ${v.height}`:"—";
+    document.getElementById("ins-vfps").textContent=v.fps?v.fps+" fps":"—";
+    document.getElementById("ins-vbr").textContent=v.bitrate?fmtBr(v.bitrate):"—";
+    document.getElementById("ins-pix").textContent=v.pix_fmt||"—";
+    document.getElementById("ins-color").textContent=v.color_space||"—";
+  }
+  // Audio
+  if(info.audio){
+    const a=info.audio;
+    document.getElementById("ins-acodec").textContent=a.codec||"—";
+    document.getElementById("ins-ach").textContent=a.channel_layout?`${a.channels}ch (${a.channel_layout})`:(a.channels?a.channels+"ch":"—");
+    document.getElementById("ins-asr").textContent=a.sample_rate?parseInt(a.sample_rate).toLocaleString()+" Hz":"—";
+    document.getElementById("ins-abr").textContent=a.bitrate?fmtBr(a.bitrate):"—";
+  }
+  document.getElementById("ins-thumb-t").max=info.duration?Math.floor(info.duration):"";
+  insPanels.classList.add("show");
+}
+
+// inspect needs overall_bitrate — let's update get_video_info to expose it
+// For now show from format data
+
+document.getElementById("ins-thumb-btn").addEventListener("click",async()=>{
+  if(!ins.uploadId)return;
+  const btn=document.getElementById("ins-thumb-btn");
+  btn.disabled=true;btn.textContent="Extracting…";
+  const t=document.getElementById("ins-thumb-t").value||"0";
+  const url=`/thumbnail/${ins.uploadId}?t=${t}`;
+  try{
+    const r=await fetch(url);if(!r.ok)throw new Error();
+    const blob=await r.blob();
+    const img=document.getElementById("ins-thumb-img");
+    img.src=URL.createObjectURL(blob);img.classList.add("show");
+    const dl=document.getElementById("ins-thumb-dl");dl.href=url;dl.style.display="";
+  }catch(_){alert("Thumbnail extraction failed.")}
+  finally{btn.disabled=false;btn.textContent="Extract Frame"}
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// BATCH TAB
+// ══════════════════════════════════════════════════════════════════════════
+const bt={queue:[],activePreset:null};
+let btCurrentPreset={...PRESETS.youtube};
+
+const btZone=document.getElementById("bt-zone");
+const btInput=document.getElementById("bt-input");
+const btTbody=document.getElementById("bt-tbody");
+const btTableWrap=document.getElementById("bt-table-wrap");
+const btActionRow=document.getElementById("bt-action-row");
+const btConvertBtn=document.getElementById("bt-convert-btn");
+const btBtnLabel=document.getElementById("bt-btn-label");
+const btStatusTxt=document.getElementById("bt-status-txt");
+
+btZone.addEventListener("click",()=>btInput.click());
+btZone.addEventListener("dragover",e=>{e.preventDefault();btZone.classList.add("drag")});
+btZone.addEventListener("dragleave",()=>btZone.classList.remove("drag"));
+btZone.addEventListener("drop",e=>{e.preventDefault();btZone.classList.remove("drag");if(e.dataTransfer.files.length)btHandleFiles(e.dataTransfer.files)});
+btInput.addEventListener("change",e=>{if(e.target.files.length)btHandleFiles(e.target.files)});
+
+function btHandleFiles(files){
+  bt.queue=[];btTbody.innerHTML="";
+  bt.queue=Array.from(files).map((f,i)=>({file:f,origName:f.name,uploadId:null,status:"pending",jobId:null,progress:0,info:null}));
+  btTableWrap.style.display="";
+  btActionRow.style.display="";
+  btConvertBtn.disabled=true;
+  btStatusTxt.textContent="Uploading…";
+  bt.queue.forEach((_,i)=>btRenderRow(i));
+  bt.queue.forEach((_,i)=>btStartUpload(i));
+}
+
+function btStartUpload(idx){
+  const item=bt.queue[idx];
+  item.status="uploading";btRenderRow(idx);
+  const fd=new FormData();fd.append("file",item.file);
+  const xhr=new XMLHttpRequest();xhr.open("POST","/upload");
+  xhr.upload.addEventListener("progress",e=>{if(e.lengthComputable){item.progress=e.loaded/e.total*100;btRenderRow(idx)}});
+  xhr.addEventListener("load",()=>{
+    try{
+      const r=JSON.parse(xhr.responseText);if(r.error)throw new Error();
+      item.uploadId=r.upload_id;item.status="ready";item.progress=100;item.info=r.info;
+    }catch(_){item.status="error"}
+    btRenderRow(idx);btCheckReady();
+  });
+  xhr.addEventListener("error",()=>{item.status="error";btRenderRow(idx);btCheckReady()});
+  xhr.send(fd);
+}
+
+function btCheckReady(){
+  const allDone=bt.queue.every(i=>i.status!=="uploading"&&i.status!=="pending");
+  const hasReady=bt.queue.some(i=>i.status==="ready");
+  btConvertBtn.disabled=!allDone||!hasReady;
+  if(allDone){
+    const n=bt.queue.filter(i=>i.status==="ready").length;
+    btStatusTxt.textContent=n+" file"+(n!==1?"s":"")+" ready";
+    btBtnLabel.textContent=`Convert All (${n})`;
+  }
+}
+
+function btRenderRow(idx){
+  const item=bt.queue[idx];
+  const info=item.info;
+  const res=info?.video?.width?`${info.video.width}×${info.video.height}`:"—";
+  const codec=info?.video?.codec||"—";
+  const fps=info?.video?.fps||"—";
+  const pct=item.progress.toFixed(0);
+  const fillCls=item.status==="done"?"done":item.status==="error"?"err":"";
+
+  let statusCell="";
+  if(item.status==="uploading"||item.status==="converting"){
+    statusCell=`<div class="bt-prog-wrap"><div class="bt-prog-track"><div class="bt-prog-fill ${fillCls}" style="width:${pct}%"></div></div><span class="bt-prog-pct">${pct}%</span></div>`;
+  }else if(item.status==="pending"){
+    statusCell=`<div class="bt-prog-wrap"><span class="bt-prog-pct" style="color:var(--muted)">—</span></div>`;
+  }else if(item.status==="ready"){
+    statusCell=`<div class="bt-prog-wrap"><span class="badge badge-blue" style="font-size:10px">Ready</span></div>`;
+  }else if(item.status==="done"){
+    statusCell=`<div class="bt-prog-wrap"><div class="bt-prog-track"><div class="bt-prog-fill done" style="width:100%"></div></div><span class="bt-prog-pct">100%</span></div>`;
+  }else if(item.status==="error"){
+    statusCell=`<div class="bt-prog-wrap"><span style="color:var(--danger);font-size:11px">✗ Error</span></div>`;
+  }
+
+  const actionCell=item.status==="done"&&item.jobId
+    ?`<a class="btn btn-ghost btn-sm" href="/download/${item.jobId}" download>Download</a>`
+    :`<span style="color:var(--muted);font-size:11px">${item.status==="error"?"Failed":""}</span>`;
+
+  const html=`<div class="bt-row" id="bt-row-${idx}">
+    <span class="bt-cell" style="color:var(--muted)">${idx+1}</span>
+    <span class="bt-cell fname" title="${esc(item.origName)}">${esc(item.origName)}</span>
+    <span class="bt-cell spec">${fmtSize(item.file.size)}</span>
+    <span class="bt-cell spec">${res}</span>
+    <span class="bt-cell spec">${codec.toUpperCase()}</span>
+    <span class="bt-cell spec">${fps}</span>
+    ${statusCell}
+    <span class="bt-action">${actionCell}</span>
+  </div>`;
+
+  const el=document.getElementById("bt-row-"+idx);
+  if(el)el.outerHTML=html;else btTbody.insertAdjacentHTML("beforeend",html);
+}
+
+// batch presets
+document.querySelectorAll("#bt-presets .preset-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const p=PRESETS[btn.dataset.preset];if(!p)return;
+    btCurrentPreset={...p};
+    document.getElementById("bt-res").value=p.resolution;
+    document.getElementById("bt-fmt").value=p.output_format;
+    document.getElementById("bt-vbr").value=p.video_bitrate;
+    document.querySelectorAll("#bt-presets .preset-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");bt.activePreset=btn.dataset.preset;
+  });
+});
+
+btConvertBtn.addEventListener("click",async()=>{
+  btConvertBtn.disabled=true;
+  const readyItems=bt.queue.filter(i=>i.status==="ready");
+  btBtnLabel.textContent="Converting…";
+  for(const item of readyItems)await btRunItem(item);
+  btBtnLabel.textContent="Done";btStatusTxt.textContent=`${readyItems.length} file(s) converted`;
+  loadHistory();
+});
+
+function btGetParams(){
+  return{
+    video_codec:btCurrentPreset.video_codec||"h264",
+    resolution:document.getElementById("bt-res").value,
+    video_bitrate:parseInt(document.getElementById("bt-vbr").value,10),
+    frame_rate:btCurrentPreset.frame_rate||"29.97",
+    color_space:btCurrentPreset.color_space||"sdr",
+    audio_codec:btCurrentPreset.audio_codec||"aac",
+    audio_bitrate:btCurrentPreset.audio_bitrate||192,
+    audio_sample_rate:parseInt(btCurrentPreset.audio_sample_rate||"48000",10),
+    audio_channels:btCurrentPreset.audio_channels||"stereo",
+    output_format:document.getElementById("bt-fmt").value,
+    trim_start:null,trim_end:null,
+  };
+}
+
+function btRunItem(item){
+  return new Promise(async resolve=>{
+    const idx=bt.queue.indexOf(item);
+    try{
+      const r=await fetch("/convert",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({upload_id:item.uploadId,original_name:item.origName,params:btGetParams()})});
+      const d=await r.json();if(d.error)throw new Error(d.error);
+      item.jobId=d.job_id;item.status="converting";item.progress=0;btRenderRow(idx);
+      const es=new EventSource("/progress/"+item.jobId);
+      es.onmessage=e=>{
+        const dd=JSON.parse(e.data);
+        if(dd.status==="processing"){item.progress=dd.progress;btRenderRow(idx)}
+        else if(dd.status==="done"){item.status="done";item.progress=100;es.close();btRenderRow(idx);resolve()}
+        else if(dd.status==="error"||dd.status==="not_found"){item.status="error";es.close();btRenderRow(idx);resolve()}
+      };
+      es.onerror=()=>{item.status="error";es.close();btRenderRow(idx);resolve()};
+    }catch(_){item.status="error";btRenderRow(idx);resolve()}
+  });
+}
+
+// override fields sync to btCurrentPreset
+document.getElementById("bt-res").addEventListener("change",e=>btCurrentPreset.resolution=e.target.value);
+document.getElementById("bt-fmt").addEventListener("change",e=>btCurrentPreset.output_format=e.target.value);
+document.getElementById("bt-vbr").addEventListener("input",e=>btCurrentPreset.video_bitrate=parseInt(e.target.value)||0);
+
+// also expose overall_bitrate in inspect — patch get_video_info to include format bit_rate
+// For the inspect tab's ins-bitrate field, expose it via format.bit_rate
+// (already returned as info.format_name, need to also pass format bit_rate)
+// We'll fix this server-side via a separate call if needed. For now just show what we have.
+
+// ══════════════════════════════════════════════════════════════════════════
+// REFRAME TAB
+// ══════════════════════════════════════════════════════════════════════════
+const rf = {
+  // Active reference item shown in crop editor
+  uploadId: null, origName: null, jobId: null,
+  srcW: 0, srcH: 0, evtSrc: null,
+  lockAR: false,
+  img: null,
+  crop: null,
+  // Batch
+  items: [],   // [{file,origName,uploadId,srcW,srcH,jobId,status,progress,evtSrc}]
+  activeIdx: 0,
+};
+
+const rfZone       = document.getElementById("rf-zone");
+const rfInput      = document.getElementById("rf-input");
+const rfChip       = document.getElementById("rf-chip");
+const rfWork       = document.getElementById("rf-work");
+const rfTw         = document.getElementById("rf-tw");
+const rfTh         = document.getElementById("rf-th");
+const rfFmt        = document.getElementById("rf-fmt");
+const rfHint       = document.getElementById("rf-change-hint");
+const rfWarning    = document.getElementById("rf-warning");
+const rfProcessBtn = document.getElementById("rf-process-btn");
+const rfResetBtn   = document.getElementById("rf-reset-btn");
+const rfProgCard   = document.getElementById("rf-prog-card");
+const rfProgText   = document.getElementById("rf-prog-text");
+const rfProgPct    = document.getElementById("rf-prog-pct");
+const rfProgFill   = document.getElementById("rf-prog-fill");
+const rfErrorBox   = document.getElementById("rf-error-box");
+const rfDlBar      = document.getElementById("rf-dl-bar");
+const rfDlBtn      = document.getElementById("rf-dl-btn");
+const rfLockBtn    = document.getElementById("rf-lock-btn");
+const rfCropCv     = document.getElementById("rf-crop-canvas");
+const rfSimCv      = document.getElementById("rf-sim-canvas");
+
+// ── Upload ─────────────────────────────────────────────────────────────
+rfZone.addEventListener("click", () => rfInput.click());
+rfZone.addEventListener("dragover", e => { e.preventDefault(); rfZone.classList.add("drag"); });
+rfZone.addEventListener("dragleave", () => rfZone.classList.remove("drag"));
+rfZone.addEventListener("drop", e => { e.preventDefault(); rfZone.classList.remove("drag"); if (e.dataTransfer.files.length) rfStartUpload(e.dataTransfer.files); });
+rfInput.addEventListener("change", e => { if (e.target.files.length) rfStartUpload(e.target.files); });
+
+function rfSetBadge(t, c) { const b = document.getElementById("rf-chip-badge"); b.textContent = t; b.className = "badge " + c; }
+
+function rfStartUpload(fileList) {
+  rfFullReset();
+  const files = Array.from(fileList);
+  const totalSize = files.reduce((s, f) => s + f.size, 0);
+  document.getElementById("rf-chip-name").textContent = files.length === 1 ? files[0].name : `${files.length} images`;
+  document.getElementById("rf-chip-size").textContent = fmtSize(totalSize);
+  rfSetBadge("Uploading…", "badge-blue");
+  rfChip.classList.add("show");
+
+  rf.items = files.map(f => ({
+    file: f, origName: f.name,
+    uploadId: null, srcW: 0, srcH: 0,
+    jobId: null, status: "uploading", progress: 0, evtSrc: null,
+    blobUrl: URL.createObjectURL(f),
+  }));
+
+  document.getElementById("rf-batch-count").textContent = files.length;
+  document.getElementById("rf-thumb-strip").style.display = files.length > 1 ? "" : "none";
+  if (files.length > 1) rfRenderThumbs();
+
+  // Upload all files; first one initialises the crop editor
+  files.forEach((_, i) => rfUploadItem(i));
+}
+
+function rfUploadItem(idx) {
+  const item = rf.items[idx];
+  const fd = new FormData(); fd.append("file", item.file);
+  const xhr = new XMLHttpRequest(); xhr.open("POST", "/image-upload");
+  xhr.addEventListener("load", () => {
+    try {
+      const r = JSON.parse(xhr.responseText);
+      if (r.error) throw new Error(r.error);
+      item.uploadId = r.upload_id; item.srcW = r.width; item.srcH = r.height;
+      item.status = "ready";
+      rfRenderThumbs();
+      // First uploaded item → load into crop editor
+      if (idx === 0) {
+        rfSetBadge(rf.items.length > 1 ? `${rf.items.length} images ready` : "Ready", "badge-green");
+        rfSelectActive(0);
+      }
+      // Check if all done uploading
+      if (rf.items.every(it => it.status !== "uploading")) {
+        rfSetBadge(`${rf.items.filter(it=>it.status==="ready").length} / ${rf.items.length} ready`, "badge-green");
+        document.getElementById("rf-process-label").textContent =
+          rf.items.length > 1 ? `Reframe All (${rf.items.length})` : "Reframe Image";
+      }
+    } catch(err) {
+      item.status = "error"; rfRenderThumbs();
+    }
+  });
+  xhr.addEventListener("error", () => { item.status = "error"; rfRenderThumbs(); });
+  xhr.send(fd);
+}
+
+function rfSelectActive(idx) {
+  rf.activeIdx = idx;
+  const item = rf.items[idx];
+  rf.uploadId = item.uploadId;
+  rf.origName = item.origName;
+  rf.srcW = item.srcW; rf.srcH = item.srcH;
+  rfRenderThumbs();
+
+  const img = new Image();
+  img.onload = () => {
+    rf.img = img;
+    rfWork.style.display = "";
+    rfTw.value = item.srcW; rfTh.value = item.srcH;
+    document.getElementById("rf-src-dims").textContent = item.srcW + " × " + item.srcH;
+    requestAnimationFrame(() => { rfInitCrop(); rfUpdateAll(); });
+  };
+  img.src = item.blobUrl;
+}
+
+function rfRenderThumbs() {
+  const container = document.getElementById("rf-thumbs");
+  if (rf.items.length <= 1) { container.innerHTML = ""; return; }
+  container.innerHTML = rf.items.map((item, i) => {
+    const statusColor = { ready:"var(--accent)", uploading:"var(--muted)", done:"var(--success)", error:"var(--danger)" }[item.status] || "var(--muted)";
+    const statusLabel = { ready:"Ready", uploading:"…", done:"Done", error:"Error" }[item.status] || item.status;
+    const activeClass = i === rf.activeIdx ? " active" : "";
+    const doneClass   = item.status === "done"  ? " done"  : item.status === "error" ? " error" : "";
+    const shortName   = item.origName.length > 10 ? item.origName.slice(0, 9) + "…" : item.origName;
+    return `<div class="rf-thumb${activeClass}${doneClass}" data-idx="${i}" title="${esc(item.origName)}">
+      <img src="${esc(item.blobUrl)}" alt="">
+      <div class="rf-thumb-label">${esc(shortName)}</div>
+      <div class="rf-thumb-badge" style="color:${statusColor};background:var(--surface3);padding:1px 4px;font-size:9px;text-align:center">${statusLabel}${item.status==="done"&&item.progress===100?" ✓":""}</div>
+    </div>`;
+  }).join("");
+  container.querySelectorAll(".rf-thumb").forEach(el => {
+    el.addEventListener("click", () => rfSelectActive(parseInt(el.dataset.idx)));
+  });
+}
+
+// ── Crop canvas tool ───────────────────────────────────────────────────
+const CROP = { drag: null, dragSX: 0, dragSY: 0, box: null, dispScale: 1 };
+const HANDLE_R = 7;
+const MIN_DIM = 20;
+
+function rfInitCrop() {
+  const img = rf.img;
+  const panelW = rfCropCv.parentElement.clientWidth || 460;
+  const MAXW = Math.max(100, panelW - 20);
+  CROP.dispScale = Math.min(1, MAXW / img.naturalWidth, 460 / img.naturalHeight);
+  rfCropCv.width  = Math.round(img.naturalWidth  * CROP.dispScale);
+  rfCropCv.height = Math.round(img.naturalHeight * CROP.dispScale);
+  CROP.box = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
+  rf.crop = null;
+  rfDrawCrop();
+}
+
+function rfDrawCrop() {
+  const ctx = rfCropCv.getContext("2d");
+  const s = CROP.dispScale, b = CROP.box;
+  ctx.drawImage(rf.img, 0, 0, rfCropCv.width, rfCropCv.height);
+
+  // Darken outside crop
+  ctx.fillStyle = "rgba(0,0,0,0.52)";
+  const bx = b.x*s, by = b.y*s, bw = b.w*s, bh = b.h*s;
+  ctx.fillRect(0, 0, rfCropCv.width, by);
+  ctx.fillRect(0, by+bh, rfCropCv.width, rfCropCv.height-by-bh);
+  ctx.fillRect(0, by, bx, bh);
+  ctx.fillRect(bx+bw, by, rfCropCv.width-bx-bw, bh);
+
+  // Border
+  ctx.strokeStyle = "#4a9eff"; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+  ctx.strokeRect(bx, by, bw, bh);
+
+  // Rule-of-thirds
+  ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+  for (let i = 1; i < 3; i++) {
+    ctx.beginPath(); ctx.moveTo(bx+bw*i/3, by); ctx.lineTo(bx+bw*i/3, by+bh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx, by+bh*i/3); ctx.lineTo(bx+bw, by+bh*i/3); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Corner + edge handles
+  ctx.fillStyle = "#4a9eff";
+  rfHandlePoints(b, s).forEach(h => {
+    ctx.beginPath(); ctx.arc(h.px, h.py, HANDLE_R, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+function rfHandlePoints(b, s) {
+  const bx=b.x*s, by=b.y*s, bw=b.w*s, bh=b.h*s;
+  return [
+    {px:bx,    py:by,    id:"nw"}, {px:bx+bw/2,py:by,    id:"n"}, {px:bx+bw,py:by,    id:"ne"},
+    {px:bx+bw, py:by+bh/2,id:"e"},{px:bx+bw,  py:by+bh, id:"se"},{px:bx+bw/2,py:by+bh,id:"s"},
+    {px:bx,    py:by+bh,  id:"sw"},{px:bx,     py:by+bh/2,id:"w"},
+  ];
+}
+
+function rfHitHandle(px, py) {
+  for (const h of rfHandlePoints(CROP.box, CROP.dispScale)) {
+    if (Math.hypot(px-h.px, py-h.py) <= HANDLE_R+3) return h.id;
+  }
+  return null;
+}
+
+function rfHitMove(px, py) {
+  const s=CROP.dispScale, b=CROP.box;
+  return px>=b.x*s && px<=(b.x+b.w)*s && py>=b.y*s && py<=(b.y+b.h)*s;
+}
+
+function rfCropPos(e) {
+  const r = rfCropCv.getBoundingClientRect();
+  const scaleX = rfCropCv.width / r.width, scaleY = rfCropCv.height / r.height;
+  const src = e.touches ? e.touches[0] : e;
+  return { px: (src.clientX - r.left)*scaleX, py: (src.clientY - r.top)*scaleY };
+}
+
+function rfOnPointerDown(e) {
+  if (!rf.img || !CROP.box) return;
+  const {px, py} = rfCropPos(e);
+  const hit = rfHitHandle(px, py);
+  if (hit) {
+    CROP.drag = {mode:"resize", handle:hit, startBox:{...CROP.box}, spx:px, spy:py};
+  } else if (rfHitMove(px, py)) {
+    CROP.drag = {mode:"move", startBox:{...CROP.box}, spx:px, spy:py};
+  } else return;
+  e.preventDefault();
+}
+
+function rfOnPointerMove(e) {
+  if (!rf.img || !CROP.box) return;
+  if (!CROP.drag) {
+    // Cursor
+    const {px,py} = rfCropPos(e);
+    const hit = rfHitHandle(px,py);
+    rfCropCv.style.cursor = hit ? rfHandleCursor(hit) : (rfHitMove(px,py) ? "move" : "crosshair");
+    return;
+  }
+  e.preventDefault();
+  const {px,py} = rfCropPos(e);
+  const s = CROP.dispScale;
+  const dx = (px-CROP.drag.spx)/s, dy = (py-CROP.drag.spy)/s;
+  const sb = CROP.drag.startBox, iW = rf.srcW, iH = rf.srcH;
+  let {x,y,w,h} = sb;
+
+  if (CROP.drag.mode === "move") {
+    x = Math.max(0, Math.min(iW-w, sb.x+dx));
+    y = Math.max(0, Math.min(iH-h, sb.y+dy));
+  } else {
+    const id = CROP.drag.handle;
+    if (id.includes("e")) { w = Math.max(MIN_DIM, Math.min(iW-x, sb.w+dx)); }
+    if (id.includes("w")) { const nw=Math.max(MIN_DIM,Math.min(sb.w+sb.x,sb.w-dx)); x=sb.x+(sb.w-nw); w=nw; }
+    if (id.includes("s")) { h = Math.max(MIN_DIM, Math.min(iH-y, sb.h+dy)); }
+    if (id.includes("n")) { const nh=Math.max(MIN_DIM,Math.min(sb.h+sb.y,sb.h-dy)); y=sb.y+(sb.h-nh); h=nh; }
+    x=Math.max(0,x); y=Math.max(0,y);
+    w=Math.min(iW-x,w); h=Math.min(iH-y,h);
+  }
+  CROP.box = {x:Math.round(x),y:Math.round(y),w:Math.round(w),h:Math.round(h)};
+  rfDrawCrop();
+  // Sync target dims to match crop AR, keeping the smaller fit
+  rfSyncDimsFromCrop();
+  rfUpdateAll();
+}
+
+function rfOnPointerUp() { CROP.drag = null; }
+
+function rfHandleCursor(id) {
+  return {nw:"nwse-resize",se:"nwse-resize",ne:"nesw-resize",sw:"nesw-resize",n:"ns-resize",s:"ns-resize",e:"ew-resize",w:"ew-resize"}[id]||"move";
+}
+
+rfCropCv.addEventListener("mousedown", rfOnPointerDown);
+document.addEventListener("mousemove",  rfOnPointerMove);
+document.addEventListener("mouseup",    rfOnPointerUp);
+rfCropCv.addEventListener("touchstart", e=>rfOnPointerDown(e), {passive:false});
+document.addEventListener("touchmove",  e=>rfOnPointerMove(e), {passive:false});
+document.addEventListener("touchend",   rfOnPointerUp);
+
+// ── Sim canvas ─────────────────────────────────────────────────────────
+function rfDrawSim() {
+  const tw = parseInt(rfTw.value)||0, th = parseInt(rfTh.value)||0;
+  if (!rf.img || !tw || !th || !CROP.box) return;
+  const b = CROP.box;
+
+  const panelW = rfSimCv.parentElement.clientWidth || 460;
+  const MAXW = Math.max(100, panelW - 20);
+  const dScale = Math.min(1, MAXW/tw, 460/th);
+  rfSimCv.width  = Math.round(tw*dScale);
+  rfSimCv.height = Math.round(th*dScale);
+
+  const ctx = rfSimCv.getContext("2d");
+  ctx.clearRect(0,0,rfSimCv.width,rfSimCv.height);
+  // Draw crop area of source image stretched to target dims
+  ctx.drawImage(rf.img, b.x, b.y, b.w, b.h, 0, 0, rfSimCv.width, rfSimCv.height);
+  document.getElementById("rf-dst-dims").textContent = tw + " × " + th;
+}
+
+// ── Sync helpers ────────────────────────────────────────────────────────
+function rfSyncDimsFromCrop() {
+  // When crop box moves, suggest target dims = crop box dims (seam carve will fine-tune)
+  const b = CROP.box;
+  rfTw.value = b.w; rfTh.value = b.h;
+}
+
+function rfUpdateAll() {
+  rfDrawSim();
+  rfUpdateHint();
+  // Update rf.crop
+  const b = CROP.box;
+  const fullImage = b.x===0 && b.y===0 && b.w===rf.srcW && b.h===rf.srcH;
+  rf.crop = fullImage ? null : {x:b.x, y:b.y, w:b.w, h:b.h};
+}
+
+function rfUpdateHint() {
+  const tw = parseInt(rfTw.value)||0, th = parseInt(rfTh.value)||0;
+  if (!tw||!th) return;
+  const b = CROP.box;
+  const dw = tw-b.w, dh = th-b.h;
+  const parts=[];
+  if (dw!==0) parts.push((dw>0?"+":"")+dw+"px W");
+  if (dh!==0) parts.push((dh>0?"+":"")+dh+"px H");
+  rfHint.textContent = parts.length ? `Seam carve ${parts.join(", ")} from crop` : "No carving needed — exact crop size";
+  const warns=[];
+  if (Math.abs(dw)>b.w*0.5) warns.push("Width change >50% — quality may degrade.");
+  if (Math.abs(dh)>b.h*0.5) warns.push("Height change >50% — quality may degrade.");
+  rfWarning.textContent = warns.join(" ");
+  rfWarning.style.display = warns.length ? "" : "none";
+}
+
+// ── AR lock ─────────────────────────────────────────────────────────────
+rfLockBtn.addEventListener("click", () => {
+  rf.lockAR = !rf.lockAR;
+  rfLockBtn.style.borderColor = rf.lockAR ? "var(--accent)" : "";
+  rfLockBtn.style.color       = rf.lockAR ? "var(--accent)" : "";
+});
+
+// ── Dimension inputs ─────────────────────────────────────────────────────
+rfTw.addEventListener("input", () => {
+  if (rf.lockAR && rf.srcW && rf.srcH) {
+    const ar = parseInt(rfTw.value) / CROP.box.w;
+    rfTh.value = Math.round(CROP.box.h * ar) || "";
+  }
+  rfUpdateAll();
+});
+rfTh.addEventListener("input", () => {
+  if (rf.lockAR && rf.srcW && rf.srcH) {
+    const ar = parseInt(rfTh.value) / CROP.box.h;
+    rfTw.value = Math.round(CROP.box.w * ar) || "";
+  }
+  rfUpdateAll();
+});
+
+// ── Presets ──────────────────────────────────────────────────────────────
+function rfClearPresets() {
+  document.querySelectorAll("#rf-ar-presets .preset-btn, #rf-sz-presets .preset-btn").forEach(b=>b.classList.remove("active"));
+}
+
+document.querySelectorAll("#rf-ar-presets .preset-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (!rf.srcW) return;
+    rfClearPresets(); btn.classList.add("active");
+    const [aw,ah] = btn.dataset.ar.split(":").map(Number);
+    // Keep whichever crop dimension changes less
+    const byW = {tw:CROP.box.w, th:Math.round(CROP.box.w*ah/aw)};
+    const byH = {tw:Math.round(CROP.box.h*aw/ah), th:CROP.box.h};
+    const dW = Math.abs(byW.tw-CROP.box.w)+Math.abs(byW.th-CROP.box.h);
+    const dH = Math.abs(byH.tw-CROP.box.w)+Math.abs(byH.th-CROP.box.h);
+    const c = dW<=dH ? byW : byH;
+    rfTw.value = c.tw; rfTh.value = c.th;
+    rfUpdateAll();
+  });
+});
+
+document.querySelectorAll("#rf-sz-presets .preset-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    rfClearPresets(); btn.classList.add("active");
+    rfTw.value = btn.dataset.w; rfTh.value = btn.dataset.h;
+    rfUpdateAll();
+  });
+});
+
+// ── Process ──────────────────────────────────────────────────────────────
+rfProcessBtn.addEventListener("click", () => {
+  const tw = parseInt(rfTw.value)||0, th = parseInt(rfTh.value)||0;
+  if (!tw||!th) return;
+  const isBatch = rf.items.length > 1;
+  if (isBatch) rfProcessBatch(tw, th);
+  else         rfProcessSingle(tw, th);
+});
+
+// Compute proportional crop for any image given the reference crop
+function rfCropForImage(srcW, srcH) {
+  if (!rf.crop) return null;
+  return {
+    x: Math.round(rf.crop.x / rf.srcW * srcW),
+    y: Math.round(rf.crop.y / rf.srcH * srcH),
+    w: Math.round(rf.crop.w / rf.srcW * srcW),
+    h: Math.round(rf.crop.h / rf.srcH * srcH),
+  };
+}
+
+async function rfProcessSingle(tw, th) {
+  if (!rf.uploadId) return;
+  rfProcessBtn.disabled = true;
+  rfDlBar.classList.remove("show");
+  document.getElementById("rf-dl-btn").style.display = "none";
+  document.getElementById("rf-zip-btn").style.display = "none";
+  rfProgFill.className = "fill"; rfProgFill.style.width="0%";
+  rfProgPct.textContent="0%"; rfProgText.textContent="Seam carving…";
+  rfErrorBox.classList.remove("show"); rfProgCard.classList.add("show");
+  try {
+    const res = await fetch("/image-resize", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ upload_id:rf.uploadId, target_w:tw, target_h:th,
+                             format:rfFmt.value, original_name:rf.origName, crop:rf.crop }),
+    });
+    const d = await res.json(); if (d.error) throw new Error(d.error);
+    rf.jobId = d.job_id;
+    if (rf.evtSrc) rf.evtSrc.close();
+    rf.evtSrc = new EventSource("/image-progress/"+d.job_id);
+    rf.evtSrc.onmessage = ev => {
+      const dd = JSON.parse(ev.data);
+      if (dd.status==="queued") return;
+      if (dd.status==="processing") { rfProgFill.style.width=dd.progress.toFixed(1)+"%"; rfProgPct.textContent=dd.progress.toFixed(1)+"%"; return; }
+      rf.evtSrc.close(); rf.evtSrc=null;
+      if (dd.status==="done") {
+        rfProgFill.style.width="100%"; rfProgFill.classList.add("done"); rfProgPct.textContent="100%"; rfProgText.textContent="Done";
+        const dlBtn = document.getElementById("rf-dl-btn");
+        dlBtn.href = "/image-download/"+d.job_id; dlBtn.style.display="";
+        rfDlBar.classList.add("show");
+        const ri = new Image();
+        ri.onload = () => {
+          const MAXW = rfSimCv.parentElement.clientWidth||460;
+          const dsc = Math.min(1,(MAXW-20)/ri.naturalWidth, 460/ri.naturalHeight);
+          rfSimCv.width=Math.round(ri.naturalWidth*dsc); rfSimCv.height=Math.round(ri.naturalHeight*dsc);
+          rfSimCv.getContext("2d").drawImage(ri,0,0,rfSimCv.width,rfSimCv.height);
+          document.getElementById("rf-dst-dims").textContent=ri.naturalWidth+" × "+ri.naturalHeight;
+        };
+        ri.src="/image-preview/"+d.job_id+"?t="+Date.now();
+      } else {
+        rfProgFill.classList.add("error"); rfProgText.textContent="Failed";
+        rfErrorBox.textContent=dd.error||"Unknown error"; rfErrorBox.classList.add("show");
+      }
+      rfProcessBtn.disabled=false;
+    };
+    rf.evtSrc.onerror = () => { rfProgText.textContent="Connection lost"; rfProcessBtn.disabled=false; };
+  } catch(err) {
+    rfProgText.textContent="Failed"; rfErrorBox.textContent=err.message;
+    rfErrorBox.classList.add("show"); rfProcessBtn.disabled=false;
+  }
+}
+
+async function rfProcessBatch(tw, th) {
+  rfProcessBtn.disabled = true;
+  rfProgCard.classList.remove("show");
+  rfDlBar.classList.remove("show");
+  document.getElementById("rf-dl-btn").style.display = "none";
+  document.getElementById("rf-zip-btn").style.display = "none";
+  document.getElementById("rf-batch-table").style.display = "";
+  const readyItems = rf.items.filter(it => it.status === "ready" || it.status === "done");
+  readyItems.forEach((_, i) => rfRenderBatchRow(rf.items.indexOf(readyItems[i])));
+  // Kick off all jobs in parallel
+  await Promise.all(rf.items.map((item, idx) => {
+    if (item.status !== "ready" && item.status !== "done") return Promise.resolve();
+    return rfRunBatchItem(idx, tw, th);
+  }));
+  // All done — show zip button if any succeeded
+  const doneIds = rf.items.filter(it=>it.status==="done" && it.jobId).map(it=>it.jobId);
+  if (doneIds.length > 0) {
+    const zipBtn = document.getElementById("rf-zip-btn");
+    zipBtn.style.display="";
+    rfDlBar.classList.add("show");
+    zipBtn.onclick = () => rfDownloadZip(doneIds);
+  }
+  rfProcessBtn.disabled = false;
+}
+
+function rfRunBatchItem(idx, tw, th) {
+  return new Promise(async resolve => {
+    const item = rf.items[idx];
+    item.status = "processing"; item.progress = 0;
+    rfRenderBatchRow(idx);
+    try {
+      const crop = rfCropForImage(item.srcW, item.srcH);
+      const res = await fetch("/image-resize", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ upload_id:item.uploadId, target_w:tw, target_h:th,
+                               format:rfFmt.value, original_name:item.origName, crop }),
+      });
+      const d = await res.json(); if (d.error) throw new Error(d.error);
+      item.jobId = d.job_id;
+      if (item.evtSrc) item.evtSrc.close();
+      item.evtSrc = new EventSource("/image-progress/"+d.job_id);
+      item.evtSrc.onmessage = ev => {
+        const dd = JSON.parse(ev.data);
+        if (dd.status==="queued") return;
+        if (dd.status==="processing") { item.progress=dd.progress; rfRenderBatchRow(idx); return; }
+        item.evtSrc.close(); item.evtSrc=null;
+        if (dd.status==="done") { item.status="done"; item.progress=100; }
+        else                    { item.status="error"; item.error=dd.error||"Failed"; }
+        rfRenderBatchRow(idx); rfRenderThumbs(); resolve();
+      };
+      item.evtSrc.onerror = () => { item.status="error"; item.evtSrc=null; rfRenderBatchRow(idx); resolve(); };
+    } catch(err) { item.status="error"; item.error=err.message; rfRenderBatchRow(idx); resolve(); }
+  });
+}
+
+function rfRenderBatchRow(idx) {
+  const item = rf.items[idx];
+  const tbody = document.getElementById("rf-batch-tbody");
+  const fillCls = item.status==="done" ? "done" : item.status==="error" ? "error" : "";
+  const pct = item.progress.toFixed(0);
+  const statusCell = item.status==="processing" || item.status==="ready"
+    ? `<div style="display:flex;align-items:center;gap:6px">
+         <div style="flex:1;height:4px;background:var(--border);border-radius:4px;overflow:hidden">
+           <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px;transition:width .3s" class="${fillCls}"></div>
+         </div>
+         <span style="font-size:11px;color:var(--muted);min-width:28px">${pct}%</span>
+       </div>`
+    : item.status==="done"
+      ? `<span class="badge badge-green" style="font-size:10px">Done</span>`
+      : item.status==="error"
+        ? `<span style="color:var(--danger);font-size:11px">✗ ${esc(item.error||"Error")}</span>`
+        : `<span style="color:var(--muted);font-size:11px">Queued</span>`;
+  const actionCell = item.status==="done" && item.jobId
+    ? `<a class="btn btn-ghost btn-sm" href="/image-download/${item.jobId}" download>↓ Save</a>`
+    : "";
+  const html = `<div class="rbt-row" id="rbt-row-${idx}">
+    <span class="rbt-cell" style="color:var(--muted)">${idx+1}</span>
+    <span class="rbt-cell" style="color:var(--text);font-weight:500" title="${esc(item.origName)}">${esc(item.origName)}</span>
+    <span class="rbt-cell" style="color:var(--muted)">${fmtSize(item.file.size)}</span>
+    <span class="rbt-cell">${statusCell}</span>
+    <span class="rbt-cell">${actionCell}</span>
+  </div>`;
+  const existing = document.getElementById("rbt-row-"+idx);
+  if (existing) existing.outerHTML = html;
+  else tbody.insertAdjacentHTML("beforeend", html);
+}
+
+async function rfDownloadZip(jobIds) {
+  const zipBtn = document.getElementById("rf-zip-btn");
+  zipBtn.disabled = true; zipBtn.textContent = "Preparing ZIP…";
+  try {
+    const res = await fetch("/image-zip", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ job_ids: jobIds }),
+    });
+    if (!res.ok) throw new Error("ZIP failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download="reframed_images.zip"; a.click();
+    URL.revokeObjectURL(url);
+  } catch(err) { alert("ZIP download failed: "+err.message); }
+  finally { zipBtn.disabled=false; zipBtn.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download All as ZIP`; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// COMPRESS TAB
+// ══════════════════════════════════════════════════════════════════════════
+const cmp = { uploadId: null, origName: null, origSize: 0, jobId: null, evtSrc: null, elTimer: null, startTs: null };
+
+const CRF_H264 = [18, 22, 26, 30, 34];
+const CRF_H265 = [24, 28, 32, 36, 40];
+const QUALITY_DESCS = [
+  "Visually lossless — barely distinguishable from the original, modest size reduction.",
+  "Excellent quality — great for archiving or sharing with minimal visible difference.",
+  "Good quality, significant size reduction — recommended starting point.",
+  "Noticeable compression at close inspection — ideal for web or social uploads.",
+  "Maximum compression — smallest file, visible artifacts on complex scenes.",
+];
+
+const cmpZone   = document.getElementById("cmp-zone");
+const cmpInput  = document.getElementById("cmp-input");
+const cmpChip   = document.getElementById("cmp-chip");
+const cmpWork   = document.getElementById("cmp-work");
+const cmpQuality= document.getElementById("cmp-quality");
+
+cmpZone.addEventListener("click", () => cmpInput.click());
+cmpZone.addEventListener("dragover", e => { e.preventDefault(); cmpZone.classList.add("drag"); });
+cmpZone.addEventListener("dragleave", () => cmpZone.classList.remove("drag"));
+cmpZone.addEventListener("drop", e => { e.preventDefault(); cmpZone.classList.remove("drag"); if (e.dataTransfer.files[0]) cmpStartUpload(e.dataTransfer.files[0]); });
+cmpInput.addEventListener("change", e => { if (e.target.files[0]) cmpStartUpload(e.target.files[0]); });
+
+function cmpStartUpload(file) {
+  cmpReset();
+  cmp.origName = file.name;
+  cmp.origSize = file.size;
+  document.getElementById("cmp-chip-name").textContent = file.name;
+  document.getElementById("cmp-chip-size").textContent = fmtSize(file.size);
+  cmpSetBadge("Uploading…", "badge-blue");
+  cmpChip.classList.add("show");
+  document.getElementById("cmp-ubar-wrap").classList.add("show");
+
+  const fd = new FormData(); fd.append("file", file);
+  const xhr = new XMLHttpRequest(); xhr.open("POST", "/upload");
+  xhr.upload.addEventListener("progress", e => { if (e.lengthComputable) document.getElementById("cmp-ubar").style.width = (e.loaded / e.total * 100).toFixed(1) + "%"; });
+  xhr.addEventListener("load", () => {
+    document.getElementById("cmp-ubar-wrap").classList.remove("show");
+    try {
+      const r = JSON.parse(xhr.responseText); if (r.error) throw new Error(r.error);
+      cmp.uploadId = r.upload_id;
+      cmpSetBadge("Ready", "badge-green");
+      cmpWork.style.display = "";
+      cmpUpdateQualityUI();
+    } catch(e) { cmpSetBadge("Upload failed", "badge-red"); }
+  });
+  xhr.addEventListener("error", () => cmpSetBadge("Upload failed", "badge-red"));
+  xhr.send(fd);
+}
+
+function cmpSetBadge(t, c) { const b = document.getElementById("cmp-chip-badge"); b.textContent = t; b.className = "badge " + c; }
+
+cmpQuality.addEventListener("input", cmpUpdateQualityUI);
+
+function cmpUpdateQualityUI() {
+  const v = parseInt(cmpQuality.value);
+  for (let i = 0; i <= 4; i++) {
+    const el = document.getElementById("cmp-ql-" + i);
+    el.classList.toggle("active-label", i === v);
+  }
+  document.getElementById("cmp-quality-desc").textContent = QUALITY_DESCS[v];
+}
+
+document.getElementById("cmp-compress-btn").addEventListener("click", async () => {
+  if (!cmp.uploadId) return;
+  const qi = parseInt(cmpQuality.value);
+  const codec = document.getElementById("cmp-codec").value;
+  const crf = codec === "h265" ? CRF_H265[qi] : CRF_H264[qi];
+  const params = {
+    codec,
+    crf,
+    speed: document.getElementById("cmp-speed").value,
+    output_format: document.getElementById("cmp-fmt").value,
+    audio_mode: document.getElementById("cmp-audio").value,
+  };
+  try {
+    const r = await fetch("/compress", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ upload_id: cmp.uploadId, original_name: cmp.origName, params }) });
+    const d = await r.json(); if (d.error) throw new Error(d.error);
+    cmp.jobId = d.job_id;
+    cmpBeginProgress(d.job_id);
+  } catch(e) { alert("Could not start: " + e.message); }
+});
+
+function cmpBeginProgress(id) {
+  document.getElementById("cmp-compress-btn").disabled = true;
+  document.getElementById("cmp-dl-bar").classList.remove("show");
+  document.getElementById("cmp-preview").classList.remove("show");
+  document.getElementById("cmp-savings").classList.remove("show");
+  document.getElementById("cmp-error-box").classList.remove("show");
+  const fill = document.getElementById("cmp-prog-fill");
+  fill.className = "fill"; fill.style.width = "0%";
+  document.getElementById("cmp-prog-pct").textContent = "0%";
+  document.getElementById("cmp-prog-text").textContent = "Compressing…";
+  document.getElementById("cmp-spinner").style.display = "";
+  document.getElementById("cmp-prog-meta").textContent = "";
+  document.getElementById("cmp-prog-card").classList.add("show");
+  cmp.startTs = Date.now();
+  clearInterval(cmp.elTimer);
+  cmp.elTimer = setInterval(() => {
+    const e = (Date.now() - cmp.startTs) / 1000, m = Math.floor(e / 60), s = Math.floor(e % 60);
+    document.getElementById("cmp-prog-meta").textContent = `${m}:${p(s)} elapsed`;
+  }, 1000);
+  if (cmp.evtSrc) cmp.evtSrc.close();
+  cmp.evtSrc = new EventSource("/progress/" + id);
+  cmp.evtSrc.onmessage = e => cmpHandleProgress(JSON.parse(e.data));
+  cmp.evtSrc.onerror = () => { document.getElementById("cmp-prog-text").textContent = "Connection lost"; document.getElementById("cmp-spinner").style.display = "none"; };
+}
+
+function cmpHandleProgress(d) {
+  if (d.status === "queued") return;
+  const fill = document.getElementById("cmp-prog-fill");
+  if (d.status === "processing") { fill.style.width = d.progress.toFixed(1) + "%"; document.getElementById("cmp-prog-pct").textContent = d.progress.toFixed(1) + "%"; return; }
+  clearInterval(cmp.elTimer); cmp.evtSrc.close(); cmp.evtSrc = null;
+  if (d.status === "done") {
+    fill.style.width = "100%"; fill.classList.add("done"); document.getElementById("cmp-prog-pct").textContent = "100%";
+    document.getElementById("cmp-spinner").style.display = "none"; document.getElementById("cmp-prog-text").textContent = "Done";
+    const el = (Date.now() - cmp.startTs) / 1000, m = Math.floor(el / 60), s = Math.floor(el % 60);
+    document.getElementById("cmp-prog-meta").textContent = `${m}:${p(s)} elapsed · ready to download`;
+    // Show savings
+    const inSz = d.input_size || cmp.origSize;
+    const outSz = d.output_size || 0;
+    if (inSz && outSz) {
+      const saved = ((inSz - outSz) / inSz * 100);
+      document.getElementById("cmp-orig-size").textContent = fmtSize(inSz);
+      document.getElementById("cmp-new-size").textContent = fmtSize(outSz);
+      const badge = document.getElementById("cmp-savings-badge");
+      badge.textContent = saved >= 0 ? `${saved.toFixed(0)}% smaller` : `${Math.abs(saved).toFixed(0)}% larger`;
+      badge.className = "savings-badge " + (saved >= 40 ? "good" : saved >= 10 ? "ok" : "warn");
+      document.getElementById("cmp-savings").classList.add("show");
+    }
+    document.getElementById("cmp-dl-bar").classList.add("show");
+    document.getElementById("cmp-dl-btn").href = "/download/" + cmp.jobId;
+    document.getElementById("cmp-new-btn").style.display = "";
+    const fmt = document.getElementById("cmp-fmt").value;
+    if (fmt !== "mkv") {
+      document.getElementById("cmp-preview-video").src = "/preview/" + cmp.jobId;
+      document.getElementById("cmp-preview-note").textContent = "";
+      document.getElementById("cmp-preview-video").style.display = "";
+      document.getElementById("cmp-preview").classList.add("show");
+    } else {
+      document.getElementById("cmp-preview-note").textContent = "MKV preview not supported in browsers — use Download.";
+      document.getElementById("cmp-preview-video").style.display = "none";
+      document.getElementById("cmp-preview").classList.add("show");
+    }
+  } else if (d.status === "error") {
+    fill.classList.add("error"); document.getElementById("cmp-spinner").style.display = "none";
+    document.getElementById("cmp-prog-text").textContent = "Compression failed";
+    document.getElementById("cmp-error-box").textContent = d.error || "Unknown error";
+    document.getElementById("cmp-error-box").classList.add("show");
+    document.getElementById("cmp-compress-btn").disabled = false;
+  } else if (d.status === "not_found") {
+    document.getElementById("cmp-spinner").style.display = "none";
+    document.getElementById("cmp-prog-text").textContent = "Job not found";
+    document.getElementById("cmp-compress-btn").disabled = false;
+  }
+}
+
+document.getElementById("cmp-new-btn").addEventListener("click", () => { cmpReset(); cmpResetUI(); });
+
+function cmpReset() {
+  if (cmp.evtSrc) { cmp.evtSrc.close(); cmp.evtSrc = null; }
+  clearInterval(cmp.elTimer);
+  if (cmp.jobId) { fetch("/cleanup/" + cmp.jobId, { method: "DELETE" }).catch(() => {}); cmp.jobId = null; }
+  cmp.uploadId = null; cmp.origName = null; cmp.origSize = 0;
+}
+
+function cmpResetUI() {
+  cmpInput.value = ""; cmpChip.classList.remove("show"); cmpWork.style.display = "none";
+  document.getElementById("cmp-prog-card").classList.remove("show");
+  document.getElementById("cmp-preview").classList.remove("show");
+  document.getElementById("cmp-savings").classList.remove("show");
+  document.getElementById("cmp-dl-bar").classList.remove("show");
+  document.getElementById("cmp-new-btn").style.display = "none";
+  document.getElementById("cmp-compress-btn").disabled = false;
+  document.getElementById("cmp-preview-video").src = "";
+  cmpQuality.value = 2; cmpUpdateQualityUI();
+}
+
+rfResetBtn.addEventListener("click", rfFullReset);
+
+function rfFullReset() {
+  if (rf.evtSrc) { rf.evtSrc.close(); rf.evtSrc=null; }
+  rf.items.forEach(it => { if (it.evtSrc) { it.evtSrc.close(); it.evtSrc=null; } });
+  rf.uploadId=null; rf.origName=null; rf.jobId=null;
+  rf.srcW=0; rf.srcH=0; rf.img=null; rf.crop=null;
+  rf.items=[]; rf.activeIdx=0;
+  rfInput.value="";
+  rfChip.classList.remove("show");
+  rfWork.style.display="none";
+  rfProgCard.classList.remove("show");
+  rfDlBar.classList.remove("show");
+  document.getElementById("rf-batch-table").style.display="none";
+  document.getElementById("rf-batch-tbody").innerHTML="";
+  document.getElementById("rf-thumb-strip").style.display="none";
+  document.getElementById("rf-thumbs").innerHTML="";
+  document.getElementById("rf-process-label").textContent="Reframe Image";
+  document.getElementById("rf-dl-btn").style.display="none";
+  document.getElementById("rf-zip-btn").style.display="none";
+  rfProcessBtn.disabled=false;
+  rfClearPresets();
+}
+
+})();
+</script>
+</body>
+</html>
