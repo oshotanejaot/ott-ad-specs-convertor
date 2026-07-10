@@ -1,0 +1,9 @@
+uploads/
+outputs/
+history.json
+__pycache__/
+*.pyc
+.DS_Store
+.claude/
+venv/
+.env
